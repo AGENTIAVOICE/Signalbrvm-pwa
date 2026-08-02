@@ -1,0 +1,31 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+
+# Proxy transparent vers le backend TradeHome/SignalBrvm existant.
+# Le backend n'autorise en CORS que les domaines *.vibecode.run — en passant
+# par ce proxy Netlify, le navigateur appelle son propre domaine (même origine,
+# pas de CORS), et Netlify relaie la requête côté serveur vers le vrai backend.
+[[redirects]]
+  from = "/api/*"
+  to = "https://pebble-coaster.vibecode.run/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"

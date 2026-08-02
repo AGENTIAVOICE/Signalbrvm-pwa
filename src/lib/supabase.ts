@@ -1,0 +1,74 @@
+import { createClient } from '@supabase/supabase-js'
+
+// Même projet Supabase que l'app mobile SignalBrvm — connecté aux vraies données.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  },
+  realtime: { params: { eventsPerSecond: 10 } },
+})
+
+export type RiskLevel = 'Faible' | 'Modéré' | 'Élevé'
+
+export interface DbUser {
+  id: string
+  email: string
+  full_name: string | null
+  status: 'pending' | 'approved' | 'rejected' | 'admin'
+  subscription_plan: string
+  created_at: string
+}
+
+export interface DbAnalysis {
+  id: string
+  title: string
+  stock_name: string | null
+  sector: string | null
+  potential_percent: number | null
+  risk_level: RiskLevel | null
+  content: string | null
+  is_published: boolean
+  image_url: string | null
+  created_at: string
+}
+
+export interface DbAlert {
+  id: string
+  stock_name: string
+  type: 'achat' | 'vente'
+  price_target: number | null
+  horizon: 'court' | 'long' | null
+  risk_level: string | null
+  content: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface DbRecommendation {
+  id: string
+  stock_name: string
+  action: 'ACHAT' | 'VENDRE' | 'CONSERVER'
+  price_entry: number | null
+  price_target: number | null
+  horizon: string | null
+  risk_level: RiskLevel | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface BrvmRow {
+  ticker: string
+  company_name?: string | null
+  cours: number | null
+  variation_pct: number | null
+  variation_7j?: number | null
+  variation_30j?: number | null
+  volume: number | null
+  capitalisation: number | null
+  updated_at: string | null
+}

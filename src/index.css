@@ -1,0 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Serif+Display&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  background-color: #0A0A0F;
+  font-family: 'DM Sans', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  /* Empêche le geste "tirer pour rafraîchir" du navigateur de recharger toute
+     la page — les écrans gèrent déjà leur propre rafraîchissement en douceur. */
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+input, button {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
