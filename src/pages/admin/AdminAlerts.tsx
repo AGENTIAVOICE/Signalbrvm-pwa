@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bell, Plus, Trash2, Edit3, EyeOff, Eye, Building2 } from 'lucide-react'
 import { adminApi, linkAlertStock } from '../../lib/adminApi'
-import type { DbAlert } from '../../lib/supabase'
+import { supabase, type DbAlert } from '../../lib/supabase'
 import { formatRelativeTime, formatPrice } from '../../lib/theme'
 import { CompanySearchInput } from '../../components/admin/CompanySearchInput'
-import { ScreenHeader, EmptyState, ModalSheet, FieldLabel, TextInput, TextArea, Toggle, PillGroup } from '../../components/admin/AdminUI'
+import { ScreenHeader, EmptyState, ModalSheet, FieldLabel, TextInput, Toggle, PillGroup } from '../../components/admin/AdminUI'
 
 interface FormState {
   id?: string
@@ -13,14 +13,11 @@ interface FormState {
   sector: string
   current_price: number | null
   type: 'achat' | 'vente'
-  price_min: string
-  price_max: string
+  price_target: string
   horizon: 'court' | 'long'
-  gain_potential: string
   objectif_1: string
   objectif_2: string
   stop_loss: string
-  content: string
   is_active: boolean
 }
 const EMPTY: FormState = {
@@ -29,15 +26,47 @@ const EMPTY: FormState = {
   sector: '',
   current_price: null,
   type: 'achat',
-  price_min: '',
-  price_max: '',
+  price_target: '',
   horizon: 'court',
-  gain_potential: '',
   objectif_1: '',
   objectif_2: '',
   stop_loss: '',
-  content: '',
   is_active: true,
+}
+
+// % par rapport au cours actuel réel de l'action sélectionnée — jamais saisi
+// à la main, toujours calculé.
+function gainPct(target: string, base: number | null): number | null {
+  const t = Number(target)
+  if (!target || !Number.isFinite(t) || base == null || base === 0) return null
+  return ((t - base) / base) * 100
+}
+
+function formatPct(v: number | null): string {
+  if (v == null) return ''
+  const sign = v > 0 ? '+' : ''
+  return `${sign}${v.toFixed(1)}%`
+}
+
+// Message de l'alerte généré automatiquement à partir de tout ce que l'admin
+// vient de saisir — plus de champ texte libre à remplir.
+function buildAutoMessage(f: FormState): string {
+  const verb = f.type === 'achat' ? "Opportunité d'achat" : 'Signal de vente'
+  const parts = [`${verb} sur ${f.stock_name || 'cette valeur'}`]
+  if (f.price_target) parts.push(`cours limite ${Number(f.price_target).toLocaleString('fr-FR')} FCFA`)
+
+  const p1 = gainPct(f.objectif_1, f.current_price)
+  const p2 = gainPct(f.objectif_2, f.current_price)
+  const objs: string[] = []
+  if (f.objectif_1 && p1 != null) objs.push(`objectif 1 à ${Number(f.objectif_1).toLocaleString('fr-FR')} FCFA (${formatPct(p1)})`)
+  if (f.objectif_2 && p2 != null) objs.push(`objectif 2 à ${Number(f.objectif_2).toLocaleString('fr-FR')} FCFA (${formatPct(p2)})`)
+  if (objs.length) parts.push(objs.join(' et '))
+
+  const pStop = gainPct(f.stop_loss, f.current_price)
+  if (f.stop_loss && pStop != null) parts.push(`stop loss à ${Number(f.stop_loss).toLocaleString('fr-FR')} FCFA (${formatPct(pStop)})`)
+
+  parts.push(`horizon ${f.horizon === 'long' ? 'long terme' : 'court terme'}`)
+  return parts.join(', ') + '.'
 }
 
 export default function AdminAlerts() {
@@ -64,35 +93,24 @@ export default function AdminAlerts() {
     load()
   }, [])
 
-  function openEdit(a: DbAlert) {
-    let message = ''
-    let priceMax = ''
-    let gain = ''
-    if (a.content) {
-      try {
-        const p = JSON.parse(a.content)
-        message = p.message ?? ''
-        priceMax = p.price_max != null ? String(p.price_max) : ''
-        gain = p.gain_potential ?? ''
-      } catch {
-        message = a.content
-      }
+  async function openEdit(a: DbAlert) {
+    let currentPrice: number | null = null
+    if (a.ticker) {
+      const { data } = await supabase.from('brvm_cours').select('cours').eq('ticker', a.ticker).maybeSingle()
+      currentPrice = data?.cours ?? null
     }
     setForm({
       id: a.id,
       stock_name: a.stock_name,
       ticker: a.ticker ?? '',
       sector: a.sector ?? '',
-      current_price: null,
+      current_price: currentPrice,
       type: a.type,
-      price_min: a.price_target != null ? String(a.price_target) : '',
-      price_max: priceMax,
+      price_target: a.price_target != null ? String(a.price_target) : '',
       horizon: a.horizon ?? 'court',
-      gain_potential: gain,
       objectif_1: a.objectif_1 != null ? String(a.objectif_1) : '',
       objectif_2: a.objectif_2 != null ? String(a.objectif_2) : '',
       stop_loss: a.stop_loss != null ? String(a.stop_loss) : '',
-      content: message,
       is_active: a.is_active,
     })
   }
@@ -100,19 +118,23 @@ export default function AdminAlerts() {
   async function save() {
     if (!form || !form.stock_name.trim()) return
     setSaving(true)
+    const p1 = gainPct(form.objectif_1, form.current_price)
+    const p2 = gainPct(form.objectif_2, form.current_price)
+    const avgGains = [p1, p2].filter((v): v is number => v != null)
+    const avgGain = avgGains.length ? avgGains.reduce((a, b) => a + b, 0) / avgGains.length : null
+
     const body = {
       stock_name: form.stock_name.trim(),
       ticker: form.ticker || null,
       sector: form.sector || null,
       type: form.type,
-      price_min: form.price_min ? Number(form.price_min) : null,
-      price_max: form.price_max ? Number(form.price_max) : null,
+      price_min: form.price_target ? Number(form.price_target) : null,
       horizon: form.horizon,
-      gain_potential: form.gain_potential || null,
+      gain_potential: avgGain != null ? formatPct(avgGain) : null,
       objectif_1: form.objectif_1 ? Number(form.objectif_1) : null,
       objectif_2: form.objectif_2 ? Number(form.objectif_2) : null,
       stop_loss: form.stop_loss ? Number(form.stop_loss) : null,
-      content: form.content || null,
+      content: JSON.stringify({ message: buildAutoMessage(form), gain_potential: avgGain != null ? formatPct(avgGain) : null }),
       is_active: form.is_active,
     }
     try {
@@ -262,7 +284,7 @@ export default function AdminAlerts() {
           </div>
 
           <div>
-            <FieldLabel>Type</FieldLabel>
+            <FieldLabel>Type d'ordre</FieldLabel>
             <PillGroup
               value={form.type}
               onChange={(v) => setForm({ ...form, type: v })}
@@ -275,13 +297,9 @@ export default function AdminAlerts() {
           </div>
 
           <div>
-            <FieldLabel>Cours limit</FieldLabel>
+            <FieldLabel>Cours limite ({form.type === 'achat' ? 'Achat' : 'Vente'})</FieldLabel>
             <p className="text-textMuted text-xs mb-2 -mt-1">le prix-cible</p>
-            <div className="flex items-center gap-3">
-              <TextInput type="number" value={form.price_min} onChange={(v) => setForm({ ...form, price_min: v })} placeholder="Min (ex: 1500)" />
-              <span className="text-textMuted text-sm">à</span>
-              <TextInput type="number" value={form.price_max} onChange={(v) => setForm({ ...form, price_max: v })} placeholder="Max (ex: 2000)" />
-            </div>
+            <TextInput type="number" value={form.price_target} onChange={(v) => setForm({ ...form, price_target: v })} placeholder="ex: 2000" />
           </div>
 
           <div>
@@ -298,32 +316,40 @@ export default function AdminAlerts() {
           </div>
 
           <div>
-            <FieldLabel>Potentiel de gain recherché</FieldLabel>
-            <div className="flex items-center gap-3">
-              <div className="flex-1">
-                <TextInput type="number" value={form.gain_potential} onChange={(v) => setForm({ ...form, gain_potential: v })} placeholder="ex: 15" />
-              </div>
-              <div className="flex items-center justify-center rounded-xl px-4 py-3.5 text-primary font-bold" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
-                %
-              </div>
-            </div>
-          </div>
-
-          <div>
             <FieldLabel>Objectifs et stop loss</FieldLabel>
             <p className="text-textMuted text-xs mb-2 -mt-1">
-              les % associés seront calculés automatiquement par rapport au cours actuel sur la page de détail
+              {form.current_price != null
+                ? 'le gain potentiel est calculé automatiquement par rapport au cours actuel réel'
+                : 'sélectionnez une entreprise via la recherche ci-dessus pour activer le calcul automatique du gain'}
             </p>
             <div className="grid grid-cols-3 gap-2">
-              <TextInput type="number" value={form.objectif_1} onChange={(v) => setForm({ ...form, objectif_1: v })} placeholder="Objectif 1" />
-              <TextInput type="number" value={form.objectif_2} onChange={(v) => setForm({ ...form, objectif_2: v })} placeholder="Objectif 2" />
-              <TextInput type="number" value={form.stop_loss} onChange={(v) => setForm({ ...form, stop_loss: v })} placeholder="Stop loss" />
+              <div>
+                <TextInput type="number" value={form.objectif_1} onChange={(v) => setForm({ ...form, objectif_1: v })} placeholder="Objectif 1" />
+                {gainPct(form.objectif_1, form.current_price) != null && (
+                  <p className="text-buy text-[11px] font-bold mt-1 text-center">{formatPct(gainPct(form.objectif_1, form.current_price))}</p>
+                )}
+              </div>
+              <div>
+                <TextInput type="number" value={form.objectif_2} onChange={(v) => setForm({ ...form, objectif_2: v })} placeholder="Objectif 2" />
+                {gainPct(form.objectif_2, form.current_price) != null && (
+                  <p className="text-buy text-[11px] font-bold mt-1 text-center">{formatPct(gainPct(form.objectif_2, form.current_price))}</p>
+                )}
+              </div>
+              <div>
+                <TextInput type="number" value={form.stop_loss} onChange={(v) => setForm({ ...form, stop_loss: v })} placeholder="Stop loss" />
+                {gainPct(form.stop_loss, form.current_price) != null && (
+                  <p className="text-sell text-[11px] font-bold mt-1 text-center">{formatPct(gainPct(form.stop_loss, form.current_price))}</p>
+                )}
+              </div>
             </div>
           </div>
 
           <div>
-            <FieldLabel>Contenu</FieldLabel>
-            <TextArea value={form.content} onChange={(v) => setForm({ ...form, content: v })} placeholder="Message de l'alerte..." />
+            <FieldLabel>Message de l'alerte</FieldLabel>
+            <p className="text-textMuted text-xs mb-2 -mt-1">généré automatiquement à partir des informations ci-dessus</p>
+            <div className="rounded-xl px-3.5 py-3 text-sm text-textSub leading-relaxed" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
+              {buildAutoMessage(form)}
+            </div>
           </div>
 
           <div className="flex items-center justify-between">
