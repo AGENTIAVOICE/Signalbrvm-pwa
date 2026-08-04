@@ -4,7 +4,16 @@ import { ArrowLeft, Building2, Sparkles, AlertTriangle } from 'lucide-react'
 import { supabase, type DbCompany } from '../lib/supabase'
 import { useStockHistory, computeRSI } from '../hooks/useData'
 import { getMarketAnalysis } from '../lib/api'
-import { formatPrice } from '../lib/theme'
+import { formatPrice, formatRelativeTime } from '../lib/theme'
+
+function DataRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
+  return (
+    <div className="flex items-center justify-between py-1.5" style={!last ? { borderBottom: '1px solid #1E1E2A' } : undefined}>
+      <span className="text-textSub text-xs">{label}</span>
+      <span className="text-white text-xs font-bold">{value}</span>
+    </div>
+  )
+}
 
 export default function MarcheDetail() {
   const { ticker } = useParams<{ ticker: string }>()
@@ -12,10 +21,14 @@ export default function MarcheDetail() {
   const [company, setCompany] = useState<DbCompany | null>(null)
   const [cours, setCours] = useState<number | null>(null)
   const [dayChange, setDayChange] = useState<number | null>(null)
+  const [volume, setVolume] = useState<number | null>(null)
+  const [capitalisation, setCapitalisation] = useState<number | null>(null)
+  const [previousClose, setPreviousClose] = useState<number | null>(null)
   const [companyName, setCompanyName] = useState<string>('')
   const { history } = useStockHistory(ticker ?? null)
 
   const [analysis, setAnalysis] = useState<string | null>(null)
+  const [analysisGeneratedAt, setAnalysisGeneratedAt] = useState<string | null>(null)
   const [analysisLoading, setAnalysisLoading] = useState(true)
   const [analysisError, setAnalysisError] = useState('')
 
@@ -24,12 +37,14 @@ export default function MarcheDetail() {
     let cancelled = false
     Promise.all([
       supabase.from('companies').select('*').eq('ticker', ticker).maybeSingle(),
-      supabase.from('brvm_cours').select('cours, variation_pct, company_name').eq('ticker', ticker).maybeSingle(),
+      supabase.from('brvm_cours').select('cours, variation_pct, volume, capitalisation, company_name').eq('ticker', ticker).maybeSingle(),
     ]).then(([comp, live]) => {
       if (cancelled) return
       setCompany((comp.data as DbCompany) ?? null)
       setCours(live.data?.cours ?? null)
       setDayChange(live.data?.variation_pct ?? null)
+      setVolume(live.data?.volume ?? null)
+      setCapitalisation(live.data?.capitalisation ?? null)
       setCompanyName(comp.data?.full_name ?? live.data?.company_name ?? ticker)
     })
     return () => {
@@ -41,38 +56,69 @@ export default function MarcheDetail() {
   const rsi = computeRSI(closes)
 
   useEffect(() => {
-    if (!ticker || cours == null || closes.length < 2) return
+    if (closes.length >= 2) setPreviousClose(closes[closes.length - 2])
+  }, [closes.length])
+
+  // Lit d'abord l'analyse déjà précalculée côté serveur (générée à la
+  // clôture des marchés) — quasi instantané. Ne relance un appel IA en
+  // direct que si aucune version en cache n'existe encore pour ce ticker.
+  useEffect(() => {
+    if (!ticker) return
     let cancelled = false
     setAnalysisLoading(true)
     setAnalysisError('')
-    const first = closes[0]
-    const trendPct = first > 0 ? ((closes[closes.length - 1] - first) / first) * 100 : null
-    const mn = Math.min(...closes)
-    const mx = Math.max(...closes)
-    const range = mx - mn || 1
-    const rangeLowPct = ((closes[closes.length - 1] - mn) / range) * 100
-    const rangeHighPct = 100 - rangeLowPct
 
-    getMarketAnalysis({
-      stockName: companyName,
-      ticker,
-      sector: company?.sector,
-      cours,
-      dayChangePct: dayChange,
-      trendPct,
-      rsi,
-      rangeLowPct,
-      rangeHighPct,
-    })
-      .then((res) => {
-        if (!cancelled) setAnalysis(res.analysis)
+    supabase
+      .from('market_analyses')
+      .select('analysis, generated_at')
+      .eq('ticker', ticker)
+      .maybeSingle()
+      .then(({ data: cached }) => {
+        if (cancelled) return
+        if (cached?.analysis) {
+          setAnalysis(cached.analysis)
+          setAnalysisGeneratedAt(cached.generated_at)
+          setAnalysisLoading(false)
+          return
+        }
+        // Repli : pas encore de version en cache pour cette valeur —
+        // génération à la demande, comme avant.
+        if (cours == null || closes.length < 2) {
+          setAnalysisLoading(false)
+          return
+        }
+        const first = closes[0]
+        const trendPct = first > 0 ? ((closes[closes.length - 1] - first) / first) * 100 : null
+        const mn = Math.min(...closes)
+        const mx = Math.max(...closes)
+        const range = mx - mn || 1
+        const rangeLowPct = ((closes[closes.length - 1] - mn) / range) * 100
+        const rangeHighPct = 100 - rangeLowPct
+        getMarketAnalysis({
+          stockName: companyName,
+          ticker,
+          sector: company?.sector,
+          cours,
+          dayChangePct: dayChange,
+          trendPct,
+          rsi,
+          rangeLowPct,
+          rangeHighPct,
+        })
+          .then((res) => {
+            if (!cancelled) {
+              setAnalysis(res.analysis)
+              setAnalysisGeneratedAt(new Date().toISOString())
+            }
+          })
+          .catch((err) => {
+            if (!cancelled) setAnalysisError(err instanceof Error ? err.message : 'Erreur')
+          })
+          .finally(() => {
+            if (!cancelled) setAnalysisLoading(false)
+          })
       })
-      .catch((err) => {
-        if (!cancelled) setAnalysisError(err instanceof Error ? err.message : 'Erreur')
-      })
-      .finally(() => {
-        if (!cancelled) setAnalysisLoading(false)
-      })
+
     return () => {
       cancelled = true
     }
@@ -168,9 +214,27 @@ export default function MarcheDetail() {
         </div>
 
         <div className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
-          <div className="flex items-center gap-2 mb-2.5">
-            <Sparkles size={15} color="#F5C842" />
-            <p className="text-white font-bold text-sm">Analyse de marché IA</p>
+          <p className="text-textMuted text-[10px] font-bold uppercase tracking-wide mb-2.5">Données de marché</p>
+          <div className="flex flex-col gap-2">
+            {volume != null && <DataRow label="Volume (titres)" value={volume.toLocaleString('fr-FR')} />}
+            {volume != null && cours != null && <DataRow label="Volume (FCFA)" value={formatPrice(Math.round(volume * cours))} />}
+            {previousClose != null && <DataRow label="Clôture veille" value={formatPrice(previousClose)} />}
+            {capitalisation != null && <DataRow label="Valorisation" value={`${capitalisation.toLocaleString('fr-FR')} Md FCFA`} last />}
+          </div>
+          <p className="text-textMuted text-[10px] mt-2.5 leading-relaxed">
+            Ouverture, plus haut/bas du jour et bêta ne sont pas disponibles dans les données actuelles (seul le cours de clôture est fourni) — non affichés plutôt qu'estimés.
+          </p>
+        </div>
+
+        <div className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="flex items-center gap-2">
+              <Sparkles size={15} color="#F5C842" />
+              <p className="text-white font-bold text-sm">Analyse de marché IA</p>
+            </div>
+            {analysisGeneratedAt && !analysisLoading && (
+              <span className="text-textMuted text-[10px]">Mise à jour {formatRelativeTime(new Date(analysisGeneratedAt))}</span>
+            )}
           </div>
 
           {analysisLoading && (
