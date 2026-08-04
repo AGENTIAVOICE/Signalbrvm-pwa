@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getProfilInvestisseurResult, type ProfilInvestisseurResult } from '../lib/profilStorage'
+import { getProfilInvestisseurResult, getCapital, saveCapital, type ProfilInvestisseurResult } from '../lib/profilStorage'
 
 export function useProfilInvestisseur() {
   const [result, setResult] = useState<ProfilInvestisseurResult | null>(null)
+  const [capital, setCapital] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
     setLoading(true)
-    setResult(await getProfilInvestisseurResult())
+    const [r, c] = await Promise.all([getProfilInvestisseurResult(), getCapital()])
+    setResult(r)
+    setCapital(c)
     setLoading(false)
   }, [])
 
@@ -15,5 +18,10 @@ export function useProfilInvestisseur() {
     refresh()
   }, [refresh])
 
-  return { result, loading, refresh }
+  async function updateCapital(amount: number) {
+    await saveCapital(amount)
+    setCapital(amount)
+  }
+
+  return { result, capital, loading, refresh, updateCapital }
 }

@@ -16,7 +16,7 @@ const PLAN_COLORS: Record<string, { border: string; bg: string; text: string; la
 export default function Profil() {
   const navigate = useNavigate()
   const { session, profile, plan } = useAuth()
-  const { result: quizResult } = useProfilInvestisseur()
+  const { result: quizResult, capital, updateCapital } = useProfilInvestisseur()
   const analysesLues = useAnalysisReadCount()
   const alertesLues = useAlertReadCount()
   const { count: ouvertures } = useAppOpenCount()
@@ -24,6 +24,8 @@ export default function Profil() {
   const [editing, setEditing] = useState(false)
   const [nameInput, setNameInput] = useState(profile?.full_name ?? '')
   const [saving, setSaving] = useState(false)
+  const [capitalInput, setCapitalInput] = useState('')
+  const [editingCapital, setEditingCapital] = useState(false)
 
   const planStyle = PLAN_COLORS[plan] ?? PLAN_COLORS.free
   const memberSince = session?.user.created_at ? formatGMTDate(new Date(session.user.created_at)) : null
@@ -132,9 +134,48 @@ export default function Profil() {
                 <Clock size={16} color={investorColor} className="mt-0.5 flex-shrink-0" />
                 <p className="text-sm"><span className="text-textSub">Horizon : </span><span className="text-white font-semibold">{investorProfile.horizon}</span></p>
               </div>
-              <div className="flex items-start gap-2">
+              <div className="flex items-start gap-2 mb-4">
                 <Shield size={16} color={investorColor} className="mt-0.5 flex-shrink-0" />
                 <p className="text-sm"><span className="text-textSub">Tolérance : </span><span className="text-white font-semibold">{investorProfile.tolerance}</span></p>
+              </div>
+
+              <div className="pt-3" style={{ borderTop: '1px solid #2A2A3A' }}>
+                <p className="text-textSub text-xs mb-2">Capital investi (sert au calcul de votre allocation cible et du test de résistance)</p>
+                {editingCapital ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={capitalInput}
+                      onChange={(e) => setCapitalInput(e.target.value)}
+                      placeholder="ex: 500000"
+                      className="flex-1 rounded-lg px-3 py-2 text-white text-sm outline-none"
+                      style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
+                      autoFocus
+                    />
+                    <button
+                      onClick={async () => {
+                        const n = Number(capitalInput)
+                        if (Number.isFinite(n) && n > 0) await updateCapital(n)
+                        setEditingCapital(false)
+                      }}
+                      className="rounded-lg px-3 py-2 text-xs font-bold"
+                      style={{ backgroundColor: investorColor, color: '#0A0A0F' }}
+                    >
+                      OK
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setCapitalInput(capital != null ? String(capital) : '')
+                      setEditingCapital(true)
+                    }}
+                    className="text-sm font-bold"
+                    style={{ color: capital != null ? '#FFFFFF' : investorColor }}
+                  >
+                    {capital != null ? `${capital.toLocaleString('fr-FR')} FCFA — modifier` : 'Renseigner mon capital'}
+                  </button>
+                )}
               </div>
             </section>
           ) : (

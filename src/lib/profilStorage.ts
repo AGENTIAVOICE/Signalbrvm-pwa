@@ -57,3 +57,37 @@ export async function saveProfilInvestisseurResult(result: ProfilInvestisseurRes
     // quand même l'afficher tant que localStorage n'est pas vidé).
   }
 }
+
+// ── Capital investi ──────────────────────────────────────────────────────────
+// Sert au test de résistance et au calcul des montants d'allocation cible du
+// portefeuille — sans ce chiffre réel, ces sections restent volontairement
+// vides plutôt que d'afficher un montant inventé.
+const CAPITAL_PREFIX = 'capital_investi:'
+
+export async function getCapital(): Promise<number | null> {
+  const { data } = await supabase.auth.getSession()
+  const uid = data.session?.user?.id
+  if (!uid) return null
+
+  const remote = data.session?.user?.user_metadata?.capital_investi
+  if (typeof remote === 'number' && Number.isFinite(remote)) {
+    localStorage.setItem(CAPITAL_PREFIX + uid, String(remote))
+    return remote
+  }
+
+  const raw = localStorage.getItem(CAPITAL_PREFIX + uid)
+  const parsed = raw ? Number(raw) : NaN
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export async function saveCapital(amount: number): Promise<void> {
+  const { data } = await supabase.auth.getSession()
+  const uid = data.session?.user?.id
+  if (!uid) return
+  localStorage.setItem(CAPITAL_PREFIX + uid, String(amount))
+  try {
+    await supabase.auth.updateUser({ data: { capital_investi: amount } })
+  } catch {
+    // idem : le cache local suffit si l'appel échoue
+  }
+}
