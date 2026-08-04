@@ -1,7 +1,8 @@
-import { Activity, Trophy } from 'lucide-react'
-import { useMemo } from 'react'
+import { Activity, Trophy, ArrowUp, ArrowDown, ArrowDownAZ } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBrvmMarket } from '../hooks/useData'
+import { usePortfolioSimulator } from '../hooks/usePortfolioSimulator'
 import { useAuth } from '../context/AuthContext'
 import { ProLock } from '../components/ProLock'
 import { RefreshButton } from '../components/RefreshButton'
@@ -17,6 +18,18 @@ function varColor(v: number | null) {
   return v > 0 ? '#22C55E' : '#EF4444'
 }
 
+function SortButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof ArrowUp; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold tappable"
+      style={active ? { backgroundColor: '#1F1A0A', color: '#F5C842', border: '1px solid #F5C842' } : { backgroundColor: '#111118', color: '#8A8A9A', border: '1px solid #2A2A3A' }}
+    >
+      <Icon size={12} /> {label}
+    </button>
+  )
+}
+
 export default function Marche() {
   const { isPro } = useAuth()
   if (!isPro) return <ProLock />
@@ -26,6 +39,10 @@ export default function Marche() {
 function MarcheInner() {
   const navigate = useNavigate()
   const { rows, loading, error, refetch } = useBrvmMarket()
+  const { positions } = usePortfolioSimulator()
+  const [sortMode, setSortMode] = useState<'asc' | 'desc' | 'name'>('asc')
+
+  const ownedTickers = useMemo(() => new Set(positions.filter((p) => p.quantity > 0).map((p) => p.ticker)), [positions])
 
   const lastUpdated = rows
     .map((r) => r.updated_at)
@@ -34,15 +51,18 @@ function MarcheInner() {
     .at(-1)
 
   // Les 3 meilleures performances du jour, mises en avant à part — le reste
-  // du marché est trié par ordre de croissance (variation du jour, du plus
-  // faible au plus fort).
+  // du marché est trié selon le choix de l'utilisateur (croissant,
+  // décroissant, ou par nom).
   const { top3, rest } = useMemo(() => {
     const withVar = rows.filter((r) => r.variation_pct != null)
     const sortedDesc = [...withVar].sort((a, b) => (b.variation_pct ?? 0) - (a.variation_pct ?? 0))
     const bestTickers = new Set(sortedDesc.slice(0, 3).map((r) => r.ticker))
-    const remaining = rows.filter((r) => !bestTickers.has(r.ticker)).sort((a, b) => (a.variation_pct ?? -Infinity) - (b.variation_pct ?? -Infinity))
+    const remaining = [...rows.filter((r) => !bestTickers.has(r.ticker))]
+    if (sortMode === 'asc') remaining.sort((a, b) => (a.variation_pct ?? -Infinity) - (b.variation_pct ?? -Infinity))
+    else if (sortMode === 'desc') remaining.sort((a, b) => (b.variation_pct ?? -Infinity) - (a.variation_pct ?? -Infinity))
+    else remaining.sort((a, b) => (a.company_name ?? a.ticker).localeCompare(b.company_name ?? b.ticker))
     return { top3: sortedDesc.slice(0, 3), rest: remaining }
-  }, [rows])
+  }, [rows, sortMode])
 
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: '#0A0A0F' }}>
@@ -110,27 +130,43 @@ function MarcheInner() {
         )}
 
         {!loading && !error && (
+          <div className="flex items-center gap-1.5 mb-3">
+            <SortButton active={sortMode === 'asc'} onClick={() => setSortMode('asc')} icon={ArrowUp} label="Croissant" />
+            <SortButton active={sortMode === 'desc'} onClick={() => setSortMode('desc')} icon={ArrowDown} label="Décroissant" />
+            <SortButton active={sortMode === 'name'} onClick={() => setSortMode('name')} icon={ArrowDownAZ} label="Nom" />
+          </div>
+        )}
+
+        {!loading && !error && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {rest.map((r) => (
-              <button
-                key={r.ticker}
-                onClick={() => navigate(`/marche/${r.ticker}`)}
-                className="rounded-xl p-3 text-left tappable"
-                style={{ backgroundColor: '#111118', border: `1px solid ${varColor(r.variation_pct)}33` }}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-white font-bold text-sm">{r.ticker}</span>
-                  <Activity size={12} color={varColor(r.variation_pct)} />
-                </div>
-                {r.company_name && (
-                  <p className="text-textMuted text-[10px] truncate mb-1.5">{r.company_name}</p>
-                )}
-                <p className="text-white text-sm font-semibold">{r.cours != null ? formatPrice(r.cours) : '—'}</p>
-                <p className="text-xs font-bold mt-0.5" style={{ color: varColor(r.variation_pct) }}>
-                  {r.variation_pct != null ? formatPercent(r.variation_pct) : '—'}
-                </p>
-              </button>
-            ))}
+            {rest.map((r) => {
+              const owned = ownedTickers.has(r.ticker)
+              return (
+                <button
+                  key={r.ticker}
+                  onClick={() => navigate(`/marche/${r.ticker}`)}
+                  className="rounded-xl p-3 text-left tappable"
+                  style={
+                    owned
+                      ? { backgroundColor: '#1F1A0A', border: '1px solid #F5C842' }
+                      : { backgroundColor: '#111118', border: `1px solid ${varColor(r.variation_pct)}33` }
+                  }
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-white font-bold text-sm">{r.ticker}</span>
+                      {owned && <span className="rounded-full" style={{ width: 5, height: 5, backgroundColor: '#F5C842' }} />}
+                    </span>
+                    <Activity size={12} color={varColor(r.variation_pct)} />
+                  </div>
+                  {r.company_name && <p className="text-textMuted text-[10px] truncate mb-1.5">{r.company_name}</p>}
+                  <p className="text-white text-sm font-semibold">{r.cours != null ? formatPrice(r.cours) : '—'}</p>
+                  <p className="text-xs font-bold mt-0.5" style={{ color: varColor(r.variation_pct) }}>
+                    {r.variation_pct != null ? formatPercent(r.variation_pct) : '—'}
+                  </p>
+                </button>
+              )
+            })}
           </div>
         )}
       </div>
