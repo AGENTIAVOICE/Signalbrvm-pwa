@@ -92,7 +92,12 @@ export default function Portefeuille() {
   // Valeurs "négociables" : celles validées comme suivies, avec un cours réel
   // connu, ET pas encore tranchées (achat/vente/observer) — une fois décidé,
   // ça sort de cette liste.
-  const tradable = validated.filter((r) => r.alert.ticker && r.cours != null && r.trade_decision === 'pending')
+  // Filet de sécurité : même si trade_decision n'a pas été mis à jour pour
+  // une raison quelconque, une valeur déjà détenue en position ne doit
+  // jamais réapparaître comme "à décider" — la mémoire réelle des positions
+  // prime toujours sur le simple statut de décision.
+  const ownedTickers = new Set(sim.positions.filter((p) => p.quantity > 0).map((p) => p.ticker))
+  const tradable = validated.filter((r) => r.alert.ticker && r.cours != null && r.trade_decision === 'pending' && !ownedTickers.has(r.alert.ticker!))
 
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: '#0A0A0F' }}>

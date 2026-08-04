@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { usePortfolioSimulator } from '../hooks/usePortfolioSimulator'
 import { useProfilInvestisseur } from '../hooks/useProfilInvestisseur'
+import { useFollowedAlerts } from '../hooks/useFollowedAlerts'
 import { useStockHistory, computeRSI } from '../hooks/useData'
 import { formatPrice } from '../lib/theme'
 
@@ -11,6 +12,7 @@ export default function SimulationDetail() {
   const navigate = useNavigate()
   const sim = usePortfolioSimulator()
   const { capital, updateCapital } = useProfilInvestisseur()
+  const { validated, setTradeDecision } = useFollowedAlerts()
   const { history } = useStockHistory(ticker ?? null)
   const [modal, setModal] = useState<'buy' | 'sell' | null>(null)
   const [amount, setAmount] = useState('')
@@ -63,6 +65,8 @@ export default function SimulationDetail() {
         if (capital != null && n > capital) throw new Error(`Montant supérieur à votre capital disponible (${capital.toLocaleString('fr-FR')} FCFA).`)
         const qty = await sim.buy({ ticker: pos.ticker, stockName: pos.stock_name, sector: pos.sector, amountFcfa: n, cours })
         if (capital != null) await updateCapital(capital - qty * cours)
+        const linked = validated.find((r) => r.alert.ticker === pos.ticker)
+        if (linked) await setTradeDecision(linked.alert.id, 'bought')
       } else {
         const n = Number(quantity)
         if (!Number.isFinite(n) || n <= 0) throw new Error('Entrez une quantité valide.')
