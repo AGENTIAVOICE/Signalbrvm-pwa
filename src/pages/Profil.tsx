@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Crown, Settings, Edit3, X, Check, Clock, Shield } from 'lucide-react'
+import { Crown, Settings, Edit3, X, Check, Clock, Shield, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { formatGMTDate } from '../lib/theme'
 import { useProfilInvestisseur } from '../hooks/useProfilInvestisseur'
@@ -140,11 +140,14 @@ export default function Profil() {
           ) : (
             <button
               onClick={() => navigate('/profil-investisseur')}
-              className="w-full rounded-2xl p-5 text-left tappable"
+              className="w-full rounded-2xl p-5 text-left tappable flex items-center justify-between gap-3"
               style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
             >
-              <p className="text-white font-bold text-sm mb-1">Découvrez votre profil de risque</p>
-              <p className="text-textSub text-xs">Répondez à 12 questions pour recevoir des recommandations adaptées.</p>
+              <div>
+                <p className="text-white font-bold text-sm mb-1">Découvrez votre profil de risque</p>
+                <p className="text-textSub text-xs">Répondez à 12 questions pour recevoir des recommandations adaptées.</p>
+              </div>
+              <ChevronRight size={16} color="#4A4A5A" className="shrink-0" />
             </button>
           )}
         </div>

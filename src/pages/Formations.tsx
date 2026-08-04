@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Play, Clock, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Play, Clock, X } from 'lucide-react'
 import { FORMATION_LEVELS } from '../lib/formationLevels'
 import { getAllVideos, type DbVideo } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -84,7 +84,8 @@ export default function Formations() {
                       style={{ backgroundColor: '#1A1A24' }}
                     >
                       <Play size={14} color="#F5C842" />
-                      <span className="text-white text-xs font-semibold truncate">{v.title}</span>
+                      <span className="text-white text-xs font-semibold truncate flex-1">{v.title}</span>
+                      <ChevronRight size={13} color="#4A4A5A" className="shrink-0" />
                     </button>
                   ))
                 )}

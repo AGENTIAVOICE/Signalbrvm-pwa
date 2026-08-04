@@ -1,4 +1,4 @@
-import { Activity, Trophy, ArrowUp, ArrowDown, ArrowDownAZ } from 'lucide-react'
+import { Activity, Trophy, ArrowUp, ArrowDown, ArrowDownAZ, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBrvmMarket } from '../hooks/useData'
@@ -121,7 +121,10 @@ function MarcheInner() {
                   </span>
                   <p className="text-white font-bold text-xs mb-1">{r.ticker}</p>
                   <p className="text-white text-xs font-semibold">{r.cours != null ? formatPrice(r.cours) : '—'}</p>
-                  <p className="text-buy text-[11px] font-extrabold mt-0.5">{r.variation_pct != null ? formatPercent(r.variation_pct) : '—'}</p>
+                  <div className="flex items-center justify-between mt-0.5">
+                    <p className="text-buy text-[11px] font-extrabold">{r.variation_pct != null ? formatPercent(r.variation_pct) : '—'}</p>
+                    <ChevronRight size={12} color="#7A6A2A" />
+                  </div>
                 </button>
               ))}
             </div>
@@ -157,7 +160,10 @@ function MarcheInner() {
                       <span className="text-white font-bold text-sm">{r.ticker}</span>
                       {owned && <span className="rounded-full" style={{ width: 5, height: 5, backgroundColor: '#F5C842' }} />}
                     </span>
-                    <Activity size={12} color={varColor(r.variation_pct)} />
+                    <div className="flex items-center gap-1">
+                      <Activity size={12} color={varColor(r.variation_pct)} />
+                      <ChevronRight size={13} color="#4A4A5A" />
+                    </div>
                   </div>
                   {r.company_name && <p className="text-textMuted text-[10px] truncate mb-1.5">{r.company_name}</p>}
                   <p className="text-white text-sm font-semibold">{r.cours != null ? formatPrice(r.cours) : '—'}</p>

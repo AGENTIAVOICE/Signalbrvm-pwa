@@ -22,6 +22,15 @@ export default function SimulationDetail() {
 
   const position = sim.positions.find((p) => p.ticker === ticker)
 
+  if (!position && sim.loading) {
+    return (
+      <div className="min-h-screen p-5" style={{ backgroundColor: '#0A0A0F' }}>
+        <div className="h-8 w-40 rounded animate-pulse mb-4" style={{ backgroundColor: '#111118' }} />
+        <div className="h-48 rounded-2xl animate-pulse" style={{ backgroundColor: '#111118' }} />
+      </div>
+    )
+  }
+
   if (!position) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3" style={{ backgroundColor: '#0A0A0F' }}>

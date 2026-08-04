@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, Calendar, Tag, Target, ShieldOff, Star, Check, Building2 } from 'lucide-react'
+import { Bell, Calendar, Tag, Target, ShieldOff, Star, Check, Building2, ChevronRight } from 'lucide-react'
 import { useAlerts } from '../hooks/useData'
 import { supabase, type DbAlert } from '../lib/supabase'
 import { RefreshButton } from '../components/RefreshButton'
@@ -128,6 +128,7 @@ function AlertCard({ alert }: { alert: DbAlert }) {
         >
           {signal}
         </span>
+        <ChevronRight size={16} color="#4A4A5A" className="shrink-0" />
       </div>
 
       {cours != null && (

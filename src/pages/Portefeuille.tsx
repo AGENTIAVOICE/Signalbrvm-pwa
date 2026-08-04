@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Briefcase, TrendingUp, TrendingDown, ShieldCheck, Zap, CheckCircle2, XCircle, Archive, Wallet, X } from 'lucide-react'
+import { Briefcase, TrendingUp, TrendingDown, ShieldCheck, Zap, CheckCircle2, XCircle, Archive, Wallet, X, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useFollowedAlerts, type FollowedAlert } from '../hooks/useFollowedAlerts'
 import { useProfilInvestisseur } from '../hooks/useProfilInvestisseur'
@@ -382,10 +382,13 @@ function SimPositionCard({ position, onOpen }: { position: SimPosition; onOpen: 
         <span className="text-textMuted">
           {position.quantity} action{position.quantity > 1 ? 's' : ''} · PRU {formatPrice(position.avg_buy_price)}
         </span>
-        <span className="font-bold" style={{ color: up ? '#22C55E' : '#EF4444' }}>
-          {up ? '+' : ''}
-          {Math.round(pnl).toLocaleString('fr-FR')} FCFA
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="font-bold" style={{ color: up ? '#22C55E' : '#EF4444' }}>
+            {up ? '+' : ''}
+            {Math.round(pnl).toLocaleString('fr-FR')} FCFA
+          </span>
+          <ChevronRight size={13} color="#4A4A5A" />
+        </div>
       </div>
     </button>
   )
@@ -508,7 +511,8 @@ function PendingCard({ row, onValidate, onReject, onOpen }: { row: FollowedAlert
     <div className="rounded-xl p-3 flex items-center justify-between" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
       <button onClick={onOpen} className="flex items-center gap-2 flex-1 text-left min-w-0 tappable">
         {alert.type === 'achat' ? <TrendingUp size={16} color="#22C55E" className="shrink-0" /> : <TrendingDown size={16} color="#EF4444" className="shrink-0" />}
-        <span className="text-white text-sm font-semibold truncate">{alert.stock_name}</span>
+        <span className="text-white text-sm font-semibold truncate flex-1">{alert.stock_name}</span>
+        <ChevronRight size={14} color="#4A4A5A" className="shrink-0" />
       </button>
       <div className="flex items-center gap-3 shrink-0">
         <button onClick={onReject} aria-label="Rejeter">
@@ -544,6 +548,7 @@ function PositionCard({ row, onOpen, onClose }: { row: FollowedAlert; onOpen: ()
             <p className="text-[11px] text-textMuted">Cours indisponible</p>
           )}
         </div>
+        <ChevronRight size={14} color="#4A4A5A" className="shrink-0" />
       </button>
       <button onClick={onClose} aria-label="Clôturer la position" className="shrink-0 ml-2">
         <Archive size={14} color="#4A4A5A" />
