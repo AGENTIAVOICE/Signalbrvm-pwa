@@ -34,14 +34,14 @@ function AllocationRing({ allocations }: { allocations: { color: string; percent
 
 export default function Portefeuille() {
   const navigate = useNavigate()
-  const { pending, validated, closed, loading, refetch, validate, reject, closePosition } = useFollowedAlerts()
+  const { pending, validated, closed, loading, refetch, validate, reject, closePosition, setTradeDecision } = useFollowedAlerts()
   const { result: quizResult, capital, updateCapital } = useProfilInvestisseur()
   const sim = usePortfolioSimulator()
   const { format } = useCurrencyFormat()
 
   const [capitalInput, setCapitalInput] = useState('')
   const [editingCapital, setEditingCapital] = useState(false)
-  const [tradeTarget, setTradeTarget] = useState<{ ticker: string; stockName: string; sector: string | null; cours: number; side: 'buy' | 'sell' } | null>(null)
+  const [tradeTarget, setTradeTarget] = useState<{ alertId: string; ticker: string; stockName: string; sector: string | null; cours: number; side: 'buy' | 'sell' } | null>(null)
 
   const profile = quizResult ? getProfile(quizResult.score) : null
   const target = profile ? ALLOCATION_BY_KEY[profile.key] ?? ALLOCATION_BY_KEY.equilibre : null
@@ -89,9 +89,10 @@ export default function Portefeuille() {
   const totalPnl = sim.positions.reduce((sum, p) => sum + p.quantity * ((p.cours ?? p.avg_buy_price) - p.avg_buy_price), 0)
   const totalValue = capital != null ? capital + investedValue : null
 
-  // Valeurs "négociables" dans le simulateur : celles que l'utilisateur a
-  // réellement validées comme positions suivies, avec un cours réel connu.
-  const tradable = validated.filter((r) => r.alert.ticker && r.cours != null)
+  // Valeurs "négociables" : celles validées comme suivies, avec un cours réel
+  // connu, ET pas encore tranchées (achat/vente/observer) — une fois décidé,
+  // ça sort de cette liste.
+  const tradable = validated.filter((r) => r.alert.ticker && r.cours != null && r.trade_decision === 'pending')
 
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: '#0A0A0F' }}>
@@ -108,18 +109,29 @@ export default function Portefeuille() {
 
       <div className="px-4 flex flex-col gap-4">
         {/* Capital & simulateur */}
-        <section className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
-          <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
-            <Wallet size={16} color="#F5C842" /> Capital & simulation d'ordres
-          </h3>
+        <section
+          className="rounded-2xl p-4 relative overflow-hidden"
+          style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
+        >
+          <div
+            className="absolute rounded-full"
+            style={{ top: -60, right: -60, width: 160, height: 160, backgroundColor: '#F5C842', opacity: 0.06 }}
+          />
+          <div className="flex items-center gap-2 mb-1 relative">
+            <div className="flex items-center justify-center rounded-xl" style={{ width: 30, height: 30, backgroundColor: '#1F1A0A' }}>
+              <Wallet size={15} color="#F5C842" />
+            </div>
+            <h3 className="text-white font-bold text-sm">Capital & simulation d'ordres</h3>
+          </div>
+
           {editingCapital ? (
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mt-3 mb-1 relative">
               <input
                 type="number"
                 value={capitalInput}
                 onChange={(e) => setCapitalInput(e.target.value)}
                 placeholder="ex: 500000"
-                className="flex-1 rounded-lg px-3 py-2 text-white text-sm outline-none"
+                className="flex-1 rounded-xl px-3 py-2.5 text-white text-sm outline-none"
                 style={{ backgroundColor: '#1A1A24', border: '1px solid #2A2A3A' }}
                 autoFocus
               />
@@ -129,7 +141,7 @@ export default function Portefeuille() {
                   if (Number.isFinite(n) && n > 0) await updateCapital(n)
                   setEditingCapital(false)
                 }}
-                className="rounded-lg px-3 py-2 text-xs font-bold"
+                className="rounded-xl px-4 py-2.5 text-xs font-extrabold"
                 style={{ backgroundColor: '#F5C842', color: '#0A0A0F' }}
               >
                 OK
@@ -141,10 +153,15 @@ export default function Portefeuille() {
                 setCapitalInput(capital != null ? String(capital) : '')
                 setEditingCapital(true)
               }}
-              className="text-sm font-bold mb-3"
-              style={{ color: capital != null ? '#FFFFFF' : '#F5C842' }}
+              className="text-left mt-2 mb-1 relative"
             >
-              {capital != null ? `Capital disponible : ${capital.toLocaleString('fr-FR')} FCFA — modifier` : 'Renseigner mon capital global'}
+              <p className="text-textMuted text-[10px] uppercase tracking-wide">Capital disponible</p>
+              <p className="font-extrabold text-2xl" style={{ color: capital != null ? '#F5C842' : '#F5C842' }}>
+                {capital != null ? capital.toLocaleString('fr-FR') : '—'} <span className="text-sm font-bold text-textMuted">FCFA</span>
+              </p>
+              <p className="text-[11px] font-semibold mt-0.5" style={{ color: '#F5C842' }}>
+                {capital != null ? 'Modifier' : 'Renseigner mon capital global'}
+              </p>
             </button>
           )}
 
@@ -169,25 +186,32 @@ export default function Portefeuille() {
           ) : (
             <div className="flex flex-col gap-2">
               {tradable.map((r) => (
-                <div key={r.alert.id} className="flex items-center justify-between rounded-xl p-2.5" style={{ backgroundColor: '#1A1A24' }}>
-                  <div className="min-w-0">
+                <div key={r.alert.id} className="rounded-xl p-2.5" style={{ backgroundColor: '#1A1A24' }}>
+                  <div className="mb-2">
                     <p className="text-white text-xs font-bold truncate">{r.alert.stock_name}</p>
                     <p className="text-primary text-[11px] font-semibold">{formatPrice(r.cours!)}</p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => setTradeTarget({ ticker: r.alert.ticker!, stockName: r.alert.stock_name, sector: r.alert.sector, cours: r.cours!, side: 'buy' })}
-                      className="rounded-lg px-2.5 py-1.5 text-[11px] font-bold"
+                      onClick={() => setTradeTarget({ alertId: r.alert.id, ticker: r.alert.ticker!, stockName: r.alert.stock_name, sector: r.alert.sector, cours: r.cours!, side: 'buy' })}
+                      className="flex-1 rounded-lg py-1.5 text-[11px] font-bold"
                       style={{ backgroundColor: '#052E16', color: '#22C55E' }}
                     >
                       Acheter
                     </button>
                     <button
-                      onClick={() => setTradeTarget({ ticker: r.alert.ticker!, stockName: r.alert.stock_name, sector: r.alert.sector, cours: r.cours!, side: 'sell' })}
-                      className="rounded-lg px-2.5 py-1.5 text-[11px] font-bold"
+                      onClick={() => setTradeTarget({ alertId: r.alert.id, ticker: r.alert.ticker!, stockName: r.alert.stock_name, sector: r.alert.sector, cours: r.cours!, side: 'sell' })}
+                      className="flex-1 rounded-lg py-1.5 text-[11px] font-bold"
                       style={{ backgroundColor: '#200A0A', color: '#EF4444' }}
                     >
                       Vendre
+                    </button>
+                    <button
+                      onClick={() => setTradeDecision(r.alert.id, 'watching')}
+                      className="flex-1 rounded-lg py-1.5 text-[11px] font-bold"
+                      style={{ backgroundColor: '#1F1A0A', color: '#F5C842' }}
+                    >
+                      Observer
                     </button>
                   </div>
                 </div>
@@ -201,7 +225,7 @@ export default function Portefeuille() {
             <h3 className="text-white font-bold text-sm mb-2">Mes actions simulées ({sim.positions.length})</h3>
             <div className="flex flex-col gap-2">
               {sim.positions.map((p) => (
-                <SimPositionCard key={p.id} position={p} />
+                <SimPositionCard key={p.id} position={p} onOpen={() => navigate(`/portefeuille/${p.ticker}`)} />
               ))}
             </div>
           </section>
@@ -320,11 +344,13 @@ export default function Portefeuille() {
           onBuy={async (amount) => {
             const qty = await sim.buy({ ticker: tradeTarget.ticker, stockName: tradeTarget.stockName, sector: tradeTarget.sector, amountFcfa: amount, cours: tradeTarget.cours })
             if (capital != null) await updateCapital(capital - qty * tradeTarget.cours)
+            await setTradeDecision(tradeTarget.alertId, 'bought')
             setTradeTarget(null)
           }}
           onSell={async (quantity) => {
             const proceeds = await sim.sell({ ticker: tradeTarget.ticker, quantity, cours: tradeTarget.cours })
             if (capital != null) await updateCapital(capital + proceeds)
+            await setTradeDecision(tradeTarget.alertId, 'sold')
             setTradeTarget(null)
           }}
         />
@@ -333,13 +359,13 @@ export default function Portefeuille() {
   )
 }
 
-function SimPositionCard({ position }: { position: SimPosition }) {
+function SimPositionCard({ position, onOpen }: { position: SimPosition; onOpen: () => void }) {
   const cours = position.cours ?? position.avg_buy_price
   const pnl = position.quantity * (cours - position.avg_buy_price)
   const pnlPct = position.avg_buy_price > 0 ? ((cours - position.avg_buy_price) / position.avg_buy_price) * 100 : 0
   const up = pnl >= 0
   return (
-    <div className="rounded-xl p-3" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
+    <button onClick={onOpen} className="w-full text-left rounded-xl p-3" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
       <div className="flex items-center justify-between mb-1.5">
         <p className="text-white text-sm font-bold">{position.stock_name}</p>
         <span className="font-extrabold text-xs" style={{ color: up ? '#22C55E' : '#EF4444' }}>
@@ -356,7 +382,7 @@ function SimPositionCard({ position }: { position: SimPosition }) {
           {Math.round(pnl).toLocaleString('fr-FR')} FCFA
         </span>
       </div>
-    </div>
+    </button>
   )
 }
 

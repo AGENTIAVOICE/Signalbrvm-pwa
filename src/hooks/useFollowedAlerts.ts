@@ -4,6 +4,7 @@ import { supabase, type DbAlert } from '../lib/supabase'
 export interface FollowedAlert {
   alert: DbAlert
   portfolio_status: 'pending' | 'validated' | 'rejected'
+  trade_decision: 'pending' | 'bought' | 'sold' | 'watching'
   closed_at: string | null
   cours: number | null
   variation_pct: number | null
@@ -31,11 +32,16 @@ export function useFollowedAlerts() {
     }
     const { data } = await supabase
       .from('user_alert_actions')
-      .select('portfolio_status, closed_at, alert:alerts(*)')
+      .select('portfolio_status, trade_decision, closed_at, alert:alerts(*)')
       .eq('user_id', uid)
       .eq('saved', true)
 
-    const list = (data ?? []).filter((r) => r.alert) as unknown as { portfolio_status: 'pending' | 'validated' | 'rejected'; closed_at: string | null; alert: DbAlert }[]
+    const list = (data ?? []).filter((r) => r.alert) as unknown as {
+      portfolio_status: 'pending' | 'validated' | 'rejected'
+      trade_decision: 'pending' | 'bought' | 'sold' | 'watching'
+      closed_at: string | null
+      alert: DbAlert
+    }[]
     const tickers = [...new Set(list.map((r) => r.alert.ticker).filter((t): t is string => !!t))]
     const coursByTicker = new Map<string, { cours: number; variation_pct: number | null }>()
     if (tickers.length) {
@@ -47,6 +53,7 @@ export function useFollowedAlerts() {
       list.map((r) => ({
         alert: r.alert,
         portfolio_status: r.portfolio_status,
+        trade_decision: r.trade_decision,
         closed_at: r.closed_at,
         cours: r.alert.ticker ? coursByTicker.get(r.alert.ticker)?.cours ?? null : null,
         variation_pct: r.alert.ticker ? coursByTicker.get(r.alert.ticker)?.variation_pct ?? null : null,
@@ -79,9 +86,26 @@ export function useFollowedAlerts() {
     refetch()
   }
 
+  async function setTradeDecision(alertId: string, decision: 'bought' | 'sold' | 'watching') {
+    const uid = await currentUserId()
+    if (!uid) return
+    await supabase.from('user_alert_actions').update({ trade_decision: decision }).eq('user_id', uid).eq('alert_id', alertId)
+    refetch()
+  }
+
   const pending = rows.filter((r) => r.portfolio_status === 'pending' && !r.closed_at)
   const validated = rows.filter((r) => r.portfolio_status === 'validated' && !r.closed_at)
   const closed = rows.filter((r) => r.portfolio_status === 'validated' && r.closed_at)
 
-  return { pending, validated, closed, loading, refetch, validate: (id: string) => setStatus(id, 'validated'), reject: (id: string) => setStatus(id, 'rejected'), closePosition }
+  return {
+    pending,
+    validated,
+    closed,
+    loading,
+    refetch,
+    validate: (id: string) => setStatus(id, 'validated'),
+    reject: (id: string) => setStatus(id, 'rejected'),
+    closePosition,
+    setTradeDecision,
+  }
 }
