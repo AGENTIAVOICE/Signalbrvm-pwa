@@ -1,4 +1,5 @@
-import { Activity } from 'lucide-react'
+import { Activity, Trophy } from 'lucide-react'
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBrvmMarket } from '../hooks/useData'
 import { useAuth } from '../context/AuthContext'
@@ -31,6 +32,17 @@ function MarcheInner() {
     .filter((d): d is string => !!d)
     .sort()
     .at(-1)
+
+  // Les 3 meilleures performances du jour, mises en avant à part — le reste
+  // du marché est trié par ordre de croissance (variation du jour, du plus
+  // faible au plus fort).
+  const { top3, rest } = useMemo(() => {
+    const withVar = rows.filter((r) => r.variation_pct != null)
+    const sortedDesc = [...withVar].sort((a, b) => (b.variation_pct ?? 0) - (a.variation_pct ?? 0))
+    const bestTickers = new Set(sortedDesc.slice(0, 3).map((r) => r.ticker))
+    const remaining = rows.filter((r) => !bestTickers.has(r.ticker)).sort((a, b) => (a.variation_pct ?? -Infinity) - (b.variation_pct ?? -Infinity))
+    return { top3: sortedDesc.slice(0, 3), rest: remaining }
+  }, [rows])
 
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: '#0A0A0F' }}>
@@ -67,9 +79,39 @@ function MarcheInner() {
 
         {error && !loading && <p className="text-sell text-sm text-center py-10">{error}</p>}
 
+        {!loading && !error && top3.length > 0 && (
+          <div className="mb-5">
+            <div className="flex items-center gap-1.5 mb-2.5">
+              <Trophy size={14} color="#F5C842" />
+              <p className="text-white font-bold text-xs uppercase tracking-wide">Meilleures performances du jour</p>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {top3.map((r, i) => (
+                <button
+                  key={r.ticker}
+                  onClick={() => navigate(`/marche/${r.ticker}`)}
+                  className="rounded-xl p-2.5 text-left tappable relative"
+                  style={{ backgroundColor: '#1F1A0A', border: '1px solid #F5C842' }}
+                >
+                  <span
+                    className="absolute top-1.5 right-1.5 flex items-center justify-center rounded-full font-extrabold"
+                    style={{ width: 15, height: 15, fontSize: 9, backgroundColor: '#F5C842', color: '#0A0A0F' }}
+                  >
+                    {i + 1}
+                  </span>
+                  <p className="text-white font-bold text-xs mb-1">{r.ticker}</p>
+                  <p className="text-white text-xs font-semibold">{r.cours != null ? formatPrice(r.cours) : '—'}</p>
+                  <p className="text-buy text-[11px] font-extrabold mt-0.5">{r.variation_pct != null ? formatPercent(r.variation_pct) : '—'}</p>
+                </button>
+              ))}
+            </div>
+            <div className="h-px mt-4" style={{ backgroundColor: '#1E1E2A' }} />
+          </div>
+        )}
+
         {!loading && !error && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {rows.map((r) => (
+            {rest.map((r) => (
               <button
                 key={r.ticker}
                 onClick={() => navigate(`/marche/${r.ticker}`)}
