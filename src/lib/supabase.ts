@@ -71,6 +71,21 @@ export interface DbHistoryPoint {
   variation_pct: number | null
 }
 
+export interface DbPortfolioPosition {
+  id: string
+  user_id: string
+  stock_id: string
+  stock_name: string
+  ticker: string
+  sector: string | null
+  quantity: number
+  avg_buy_price: number
+  logo_initials: string | null
+  logo_color: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface DbRecommendation {
   id: string
   stock_name: string
