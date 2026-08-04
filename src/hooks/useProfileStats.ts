@@ -114,3 +114,70 @@ export async function recordAppOpenOnce() {
     // ignore
   }
 }
+
+// ── Sauvegarder / Être alerté sur une alerte ────────────────────────────────
+// Persiste réellement l'état des boutons "Sauvegarder" et "Être alerté" par
+// utilisateur et par alerte (au lieu d'un simple état local qui se
+// réinitialisait à chaque rechargement de page).
+export function useAlertAction(alertId: string | null) {
+  const [saved, setSaved] = useState(false)
+  const [notify, setNotify] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!alertId) {
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const uid = await currentUserId()
+      if (!uid) {
+        if (!cancelled) setLoading(false)
+        return
+      }
+      const { data } = await supabase
+        .from('user_alert_actions')
+        .select('saved, notify')
+        .eq('user_id', uid)
+        .eq('alert_id', alertId)
+        .maybeSingle()
+      if (!cancelled) {
+        setSaved(data?.saved ?? false)
+        setNotify(data?.notify ?? false)
+        setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [alertId])
+
+  async function toggleSaved() {
+    if (!alertId) return
+    const uid = await currentUserId()
+    if (!uid) return
+    const next = !saved
+    setSaved(next)
+    try {
+      await supabase.from('user_alert_actions').upsert({ user_id: uid, alert_id: alertId, saved: next }, { onConflict: 'user_id,alert_id' })
+    } catch {
+      setSaved(!next)
+    }
+  }
+
+  async function toggleNotify() {
+    if (!alertId) return
+    const uid = await currentUserId()
+    if (!uid) return
+    const next = !notify
+    setNotify(next)
+    try {
+      await supabase.from('user_alert_actions').upsert({ user_id: uid, alert_id: alertId, notify: next }, { onConflict: 'user_id,alert_id' })
+    } catch {
+      setNotify(!next)
+    }
+  }
+
+  return { saved, notify, loading, toggleSaved, toggleNotify }
+}

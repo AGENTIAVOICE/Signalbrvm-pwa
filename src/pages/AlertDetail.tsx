@@ -4,7 +4,7 @@ import { ArrowLeft, Bell, Building2, Lightbulb, Star, Check } from 'lucide-react
 import { supabase, type DbAlert, type DbCompany } from '../lib/supabase'
 import { useStockHistory, computeRSI } from '../hooks/useData'
 import { formatPrice } from '../lib/theme'
-import { markAlertRead } from '../hooks/useProfileStats'
+import { markAlertRead, useAlertAction } from '../hooks/useProfileStats'
 
 function pct(target: number | null, base: number | null): string | null {
   if (target == null || base == null || base === 0) return null
@@ -21,7 +21,6 @@ export default function AlertDetail() {
   const [currentPrice, setCurrentPrice] = useState<number | null>(null)
   const [dayChange, setDayChange] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
-  const [added, setAdded] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -61,6 +60,7 @@ export default function AlertDetail() {
   const { history } = useStockHistory(alert?.ticker ?? null)
   const closes = history.map((h) => h.cours)
   const rsi = computeRSI(closes)
+  const { saved, notify, toggleSaved, toggleNotify } = useAlertAction(alert?.id ?? null)
 
   if (loading) {
     return (
@@ -229,18 +229,18 @@ export default function AlertDetail() {
 
         <div className="flex gap-2">
           <button
-            className="flex-1 rounded-xl py-3 flex items-center justify-center gap-2 font-extrabold text-sm text-white"
-            style={{ border: '1px solid #2A2A3A' }}
+            onClick={toggleSaved}
+            className="flex-1 rounded-xl py-3 flex items-center justify-center gap-2 font-extrabold text-sm"
+            style={{ border: '1px solid #2A2A3A', color: saved ? '#F5C842' : '#FFFFFF' }}
           >
-            <Star size={15} /> Sauvegarder
+            <Star size={15} fill={saved ? '#F5C842' : 'none'} /> {saved ? 'Sauvegardé' : 'Sauvegarder'}
           </button>
           <button
-            onClick={() => setAdded(true)}
-            disabled={added}
+            onClick={toggleNotify}
             className="flex-1 rounded-xl py-3 flex items-center justify-center gap-2 font-extrabold text-sm"
-            style={{ backgroundColor: added ? '#22C55E' : '#F5C842', color: '#0A0A0F' }}
+            style={{ backgroundColor: notify ? '#22C55E' : '#F5C842', color: '#0A0A0F' }}
           >
-            {added ? (
+            {notify ? (
               <>
                 <Check size={15} /> Alerté
               </>

@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell, Calendar, FileText, Tag, TrendingUp, TrendingDown, Star, Check, Building2 } from 'lucide-react'
 import { useAlerts } from '../hooks/useData'
 import type { DbAlert } from '../lib/supabase'
 import { RefreshButton } from '../components/RefreshButton'
-import { markAlertRead } from '../hooks/useProfileStats'
+import { markAlertRead, useAlertAction } from '../hooks/useProfileStats'
 import { formatPrice } from '../lib/theme'
 import { useAppStore } from '../lib/store'
 
@@ -53,7 +53,7 @@ function Row({ icon: Icon, label, value, valueColor, last }: { icon: typeof Tag;
 function AlertCard({ alert }: { alert: DbAlert }) {
   const navigate = useNavigate()
   const content = parseContent(alert.content)
-  const [added, setAdded] = useState(false)
+  const { saved, toggleSaved } = useAlertAction(alert.id)
   const isBuy = alert.type === 'achat'
   const signal = isBuy ? 'ACHAT' : 'VENDRE'
   const accent = isBuy ? '#22C55E' : '#EF4444'
@@ -67,11 +67,6 @@ function AlertCard({ alert }: { alert: DbAlert }) {
   if (alert.price_target != null) rows.push({ icon: Tag, label: 'Cours limit', value: formatPrice(alert.price_target) })
   if (alert.horizon) rows.push({ icon: Calendar, label: 'Horizon', value: alert.horizon === 'long' ? 'Long terme' : 'Court terme' })
   if (content.gainPotential) rows.push({ icon: TrendingUp, label: 'Potentiel de gain moyen', value: content.gainPotential, valueColor: '#22C55E' })
-
-  function handleAddToWatch() {
-    markAlertRead(alert.id)
-    setAdded(true)
-  }
 
   return (
     <div
@@ -130,13 +125,13 @@ function AlertCard({ alert }: { alert: DbAlert }) {
       <button
         onClick={(e) => {
           e.stopPropagation()
-          handleAddToWatch()
+          markAlertRead(alert.id)
+          toggleSaved()
         }}
-        disabled={added}
         className="w-full mt-3 rounded-xl py-3 flex items-center justify-center gap-2 font-extrabold text-sm"
-        style={{ backgroundColor: added ? '#22C55E' : '#F5C842', color: '#0A0A0F' }}
+        style={{ backgroundColor: saved ? '#22C55E' : '#F5C842', color: '#0A0A0F' }}
       >
-        {added ? (
+        {saved ? (
           <>
             <Check size={16} /> Ajouté au suivi
           </>
