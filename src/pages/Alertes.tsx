@@ -1,8 +1,8 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, Calendar, FileText, Tag, TrendingUp, TrendingDown, Star, Check, Building2 } from 'lucide-react'
+import { Bell, Calendar, Tag, Target, ShieldOff, Star, Check, Building2 } from 'lucide-react'
 import { useAlerts } from '../hooks/useData'
-import type { DbAlert } from '../lib/supabase'
+import { supabase, type DbAlert } from '../lib/supabase'
 import { RefreshButton } from '../components/RefreshButton'
 import { NotificationBell } from '../components/NotificationBell'
 import { markAlertRead, useAlertAction } from '../hooks/useProfileStats'
@@ -35,16 +35,39 @@ function formatAlertDateTime(date: Date): string {
   return `${date.toLocaleDateString('fr-FR', { timeZone: tz, day: '2-digit', month: 'short' })} • ${time}`
 }
 
+// Petit historique réel + cours actuel réel pour le mini-graphique de la
+// carte — une seule lecture (pas de temps réel ici, le bouton "Actualiser"
+// de la liste suffit à rafraîchir).
+function useCardMarketSnapshot(ticker: string | null) {
+  const [closes, setCloses] = useState<number[]>([])
+  const [cours, setCours] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!ticker) return
+    let cancelled = false
+    Promise.all([
+      supabase.from('brvm_history').select('cours').eq('ticker', ticker).order('day', { ascending: true }),
+      supabase.from('brvm_cours').select('cours').eq('ticker', ticker).maybeSingle(),
+    ]).then(([hist, live]) => {
+      if (cancelled) return
+      setCloses((hist.data ?? []).map((h) => h.cours))
+      setCours(live.data?.cours ?? null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [ticker])
+
+  return { closes, cours }
+}
+
 function Row({ icon: Icon, label, value, valueColor, last }: { icon: typeof Tag; label: string; value: string; valueColor?: string; last?: boolean }) {
   return (
-    <div
-      className="flex items-center justify-between py-2.5"
-      style={!last ? { borderBottom: '1px solid #2A2A3A' } : undefined}
-    >
-      <span className="flex items-center gap-2 text-[11px] font-semibold tracking-wide uppercase text-textSub">
-        <Icon size={14} color="#8A8A9A" /> {label}
+    <div className="flex items-center justify-between py-2" style={!last ? { borderBottom: undefined } : undefined}>
+      <span className="flex items-center gap-2 text-[11.5px] text-textSub">
+        <Icon size={13} color="#8A8A9A" /> {label}
       </span>
-      <span className="font-extrabold text-sm" style={{ color: valueColor ?? '#FFFFFF' }}>
+      <span className="font-bold text-xs" style={{ color: valueColor ?? '#FFFFFF' }}>
         {value}
       </span>
     </div>
@@ -55,72 +78,98 @@ function AlertCard({ alert }: { alert: DbAlert }) {
   const navigate = useNavigate()
   const content = parseContent(alert.content)
   const { saved, toggleSaved } = useAlertAction(alert.id)
+  const { closes, cours } = useCardMarketSnapshot(alert.ticker)
   const isBuy = alert.type === 'achat'
   const signal = isBuy ? 'ACHAT' : 'VENDRE'
   const accent = isBuy ? '#22C55E' : '#EF4444'
-  const opportunityBg = isBuy ? '#052E16' : '#200A0A'
-  const opportunityBorder = isBuy ? '#166534' : '#7F1D1D'
-  const OpportunityIcon = isBuy ? TrendingUp : TrendingDown
+  const accentDark = isBuy ? '#04210E' : '#2A0808'
 
-  const rows: { icon: typeof Tag; label: string; value: string; valueColor?: string }[] = [
-    { icon: FileText, label: "Type d'ordre", value: signal, valueColor: accent },
-  ]
-  if (alert.price_target != null) rows.push({ icon: Tag, label: 'Cours limit', value: formatPrice(alert.price_target) })
-  if (alert.horizon) rows.push({ icon: Calendar, label: 'Horizon', value: alert.horizon === 'long' ? 'Long terme' : 'Court terme' })
-  if (content.gainPotential) rows.push({ icon: TrendingUp, label: 'Potentiel de gain moyen', value: content.gainPotential, valueColor: '#22C55E' })
+  const gainValue = content.gainPotential ? parseFloat(content.gainPotential) : null
+  const gainPct = gainValue != null && Number.isFinite(gainValue) ? Math.min(Math.max(gainValue, 0), 100) : null
+
+  // Sparkline SVG à partir de l'historique réel (+ cours du jour si absent).
+  const values = closes.length && cours != null && closes[closes.length - 1] !== cours ? [...closes, cours] : closes
+  let sparkPoints = ''
+  if (values.length > 1) {
+    const mn = Math.min(...values)
+    const mx = Math.max(...values)
+    const range = mx - mn || 1
+    sparkPoints = values
+      .map((v, i) => {
+        const x = 2 + (i * 106) / (values.length - 1)
+        const y = 30 - ((v - mn) / range) * 24 - 2
+        return `${x.toFixed(1)},${y.toFixed(1)}`
+      })
+      .join(' ')
+  }
 
   return (
     <div
       onClick={() => navigate(`/alertes/${alert.id}`)}
       className="rounded-3xl p-4 mb-4 cursor-pointer tappable"
-      style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
+      style={{ backgroundColor: '#111118', border: '1px solid #23232E' }}
     >
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center gap-3 mb-3.5">
+        <div
+          className="flex items-center justify-center rounded-xl shrink-0"
+          style={{ width: 38, height: 38, border: '1px solid #2A2A3A' }}
+        >
+          <Building2 size={16} color="#F5C842" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-extrabold text-sm text-white truncate">{alert.stock_name}</p>
+          <span className="flex items-center gap-1 text-[10px] text-textMuted">
+            <Calendar size={11} /> {formatAlertDateTime(new Date(alert.created_at))} · {alert.horizon === 'long' ? 'Long terme' : 'Court terme'}
+          </span>
+        </div>
         <span
-          className="inline-block rounded-lg px-2.5 py-1 text-[11px] font-extrabold tracking-wide"
-          style={{ backgroundColor: opportunityBg, color: accent, border: `1.5px solid ${opportunityBorder}` }}
+          className="shrink-0 rounded-[9px] font-extrabold"
+          style={{ backgroundColor: accent, color: accentDark, fontSize: 11.5, padding: '6px 12px', letterSpacing: 0.3 }}
         >
           {signal}
         </span>
-        <span className="flex items-center gap-1 text-xs text-textMuted">
-          <Calendar size={12} /> {formatAlertDateTime(new Date(alert.created_at))}
-        </span>
       </div>
 
-      <div className="flex items-center gap-3 mb-3">
-        <div
-          className="flex items-center justify-center rounded-full shrink-0"
-          style={{ width: 44, height: 44, backgroundColor: '#1A1A24', border: '1.5px solid #2A2A3A' }}
-        >
-          <Building2 size={20} color="#F5C842" />
+      {cours != null && (
+        <div className="flex items-center justify-between mb-3.5">
+          <div>
+            <p className="text-textMuted text-[9px] uppercase tracking-wide mb-0.5">Cours actuel</p>
+            <p className="font-extrabold text-lg text-white">{formatPrice(cours)}</p>
+          </div>
+          {sparkPoints && (
+            <svg width={110} height={36} viewBox="0 0 110 36">
+              <polyline points={sparkPoints} fill="none" stroke={accent} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
         </div>
-        <div>
-          <p className="font-extrabold text-[17px] leading-tight text-white">{alert.stock_name}</p>
-        </div>
-      </div>
+      )}
 
-      <div>
-        {rows.map((r, i) => (
-          <Row key={r.label} icon={r.icon} label={r.label} value={r.value} valueColor={r.valueColor} last={i === rows.length - 1} />
-        ))}
-      </div>
-
-      <div
-        className="rounded-2xl p-3 mt-3 flex items-start gap-2.5"
-        style={{ backgroundColor: opportunityBg, border: `1px solid ${opportunityBorder}` }}
-      >
-        <OpportunityIcon size={18} color={accent} className="mt-0.5 shrink-0" />
-        <div>
-          <p className="font-extrabold text-[11px] tracking-wide uppercase mb-0.5" style={{ color: accent }}>
-            {isBuy ? 'Opportunité identifiée' : 'Signal de vente'}
-          </p>
-          <p className="text-xs leading-relaxed text-textSub">
-            {content.message ||
-              (isBuy
-                ? 'Les signaux techniques et fondamentaux indiquent un potentiel de hausse intéressant.'
-                : 'Les signaux techniques et fondamentaux indiquent un risque de baisse sur cette valeur.')}
-          </p>
+      {gainPct != null && (
+        <div className="mb-3.5">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-textSub text-[10.5px] font-bold">Potentiel de gain moyen</span>
+            <span className="font-extrabold text-[13px]" style={{ color: accent }}>
+              {content.gainPotential}
+              {content.gainPotential?.includes('%') ? '' : '%'}
+            </span>
+          </div>
+          <div className="h-1.5 rounded" style={{ backgroundColor: '#1A1A24' }}>
+            <div className="h-full rounded" style={{ width: `${gainPct}%`, backgroundColor: accent }} />
+          </div>
         </div>
+      )}
+
+      <div className="flex flex-col gap-0.5 mb-3.5">
+        {alert.price_target != null && <Row icon={Tag} label="Cours limite" value={formatPrice(alert.price_target)} />}
+        {(alert.objectif_1 != null || alert.objectif_2 != null) && (
+          <Row
+            icon={Target}
+            label="Objectifs"
+            value={[alert.objectif_1, alert.objectif_2].filter((v) => v != null).map((v) => formatPrice(v as number)).join(' · ')}
+            valueColor={accent}
+          />
+        )}
+        {alert.stop_loss != null && <Row icon={ShieldOff} label="Stop loss" value={formatPrice(alert.stop_loss)} valueColor="#EF4444" last />}
       </div>
 
       <button
@@ -129,16 +178,16 @@ function AlertCard({ alert }: { alert: DbAlert }) {
           markAlertRead(alert.id)
           toggleSaved()
         }}
-        className="w-full mt-3 rounded-xl py-3 flex items-center justify-center gap-2 font-extrabold text-sm"
-        style={{ backgroundColor: saved ? '#22C55E' : '#F5C842', color: '#0A0A0F' }}
+        className="w-full rounded-xl py-3 flex items-center justify-center gap-2 font-extrabold text-[12.5px]"
+        style={saved ? { backgroundColor: '#052E16', color: '#22C55E', border: '1px solid #166534' } : { backgroundColor: '#1F1A0A', color: '#F5C842', border: '1px solid #F5C842' }}
       >
         {saved ? (
           <>
-            <Check size={16} /> Ajouté au suivi
+            <Check size={14} /> Ajouté au suivi
           </>
         ) : (
           <>
-            <Star size={16} /> Ajouter au suivi
+            <Star size={14} /> Ajouter au suivi
           </>
         )}
       </button>
