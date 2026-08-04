@@ -149,8 +149,8 @@ export default function SimulationDetail() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} onClick={() => setModal(null)}>
-          <div className="w-full rounded-t-3xl p-5" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }} onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center sheet-backdrop-transition" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} onClick={() => setModal(null)}>
+          <div className="w-full rounded-t-3xl p-5 sheet-transition" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }} onClick={(e) => e.stopPropagation()}>
             <h3 className="text-white font-extrabold text-base mb-4">{modal === 'buy' ? 'Acheter' : 'Vendre'} — {position.stock_name}</h3>
             <p className="text-textSub text-xs mb-3">
               Cours actuel réel : <span className="text-primary font-bold">{formatPrice(cours)}</span>

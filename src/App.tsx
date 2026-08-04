@@ -6,6 +6,7 @@ import { AdminProtectedRoute, AdminLayout } from './components/AdminLayout'
 import { UpdateBanner } from './components/UpdateBanner'
 import { WelcomeProModal } from './components/WelcomeProModal'
 import { useSwipeBack } from './hooks/useSwipeBack'
+import { PageFade } from './components/PageFade'
 import Auth from './pages/Auth'
 import Alertes from './pages/Alertes'
 import AlertDetail from './pages/AlertDetail'
@@ -38,8 +39,8 @@ export default function App() {
         <WelcomeProModal />
         <SwipeBack />
         <Routes>
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/auth" element={<PageFade><Auth /></PageFade>} />
+          <Route path="/admin/login" element={<PageFade><AdminLogin /></PageFade>} />
 
           <Route element={<AdminProtectedRoute />}>
             <Route element={<AdminLayout />}>
@@ -51,11 +52,11 @@ export default function App() {
           </Route>
 
           <Route element={<ProtectedRoute />}>
-            <Route path="/abonnement" element={<Abonnement />} />
-            <Route path="/conseils" element={<Conseils />} />
-            <Route path="/formations" element={<Formations />} />
-            <Route path="/profil-investisseur" element={<ProfilInvestisseur />} />
-            <Route path="/profil/parametres" element={<ProfilParametres />} />
+            <Route path="/abonnement" element={<PageFade><Abonnement /></PageFade>} />
+            <Route path="/conseils" element={<PageFade><Conseils /></PageFade>} />
+            <Route path="/formations" element={<PageFade><Formations /></PageFade>} />
+            <Route path="/profil-investisseur" element={<PageFade><ProfilInvestisseur /></PageFade>} />
+            <Route path="/profil/parametres" element={<PageFade><ProfilParametres /></PageFade>} />
             <Route element={<AppLayout />}>
               <Route path="/alertes" element={<Alertes />} />
               <Route path="/alertes/:id" element={<AlertDetail />} />

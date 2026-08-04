@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import { Outlet } from 'react-router-dom'
 import { BottomNav } from './BottomNav'
+import { AnimatedOutlet } from './AnimatedOutlet'
 import FloatingChatBubble from './FloatingChatBubble'
 import { ErrorBoundary } from './ErrorBoundary'
 import { recordAppOpenOnce } from '../hooks/useProfileStats'
@@ -13,7 +13,7 @@ export function AppLayout() {
   return (
     <div>
       <ErrorBoundary>
-        <Outlet />
+        <AnimatedOutlet />
       </ErrorBoundary>
       <FloatingChatBubble />
       <BottomNav />

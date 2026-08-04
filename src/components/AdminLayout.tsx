@@ -1,4 +1,5 @@
 import { Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { AnimatedOutlet } from './AnimatedOutlet'
 import { Users, FileText, Bell, Video, LogOut } from 'lucide-react'
 import { getAdminToken, clearAdminToken } from '../lib/adminApi'
 import { ErrorBoundary } from './ErrorBoundary'
@@ -48,7 +49,7 @@ export function AdminLayout() {
 
       <div className="px-4 py-4">
         <ErrorBoundary>
-          <Outlet />
+          <AnimatedOutlet />
         </ErrorBoundary>
       </div>
 

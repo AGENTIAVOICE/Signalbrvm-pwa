@@ -11,9 +11,9 @@ export function ModalSheet({
   children: ReactNode
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: 'rgba(0,0,0,0.65)' }}>
+    <div className="fixed inset-0 z-50 flex items-end sheet-backdrop-transition" style={{ backgroundColor: 'rgba(0,0,0,0.65)' }}>
       <div
-        className="w-full max-h-[92vh] overflow-y-auto rounded-t-3xl"
+        className="w-full max-h-[92vh] overflow-y-auto rounded-t-3xl sheet-transition"
         style={{ backgroundColor: '#0A0A0F', border: '1px solid #2A2A3A' }}
       >
         <div
