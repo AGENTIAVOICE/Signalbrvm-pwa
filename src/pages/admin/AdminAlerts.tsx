@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bell, Plus, Trash2, Edit3, EyeOff, Eye, Building2 } from 'lucide-react'
-import { adminApi } from '../../lib/adminApi'
+import { adminApi, linkAlertStock } from '../../lib/adminApi'
 import type { DbAlert } from '../../lib/supabase'
 import { formatRelativeTime, formatPrice } from '../../lib/theme'
 import { CompanySearchInput } from '../../components/admin/CompanySearchInput'
@@ -116,8 +116,35 @@ export default function AdminAlerts() {
       is_active: form.is_active,
     }
     try {
-      if (form.id) await adminApi.patch(`/alerts/${form.id}`, body)
-      else await adminApi.post('/alerts', body)
+      let alertId = form.id
+      const isCreate = !alertId
+      if (alertId) {
+        await adminApi.patch(`/alerts/${alertId}`, body)
+      } else {
+        const created = await adminApi.post<{ id: string }>('/alerts', body)
+        alertId = created?.id
+      }
+      const fresh = await adminApi.get<DbAlert[]>('/alerts')
+      setAlerts(fresh)
+      // Si le backend externe n'a pas renvoyé l'id de la nouvelle alerte, on
+      // le retrouve dans la liste fraîchement rechargée (la plus récente
+      // avec le même nom d'action).
+      if (!alertId && isCreate) {
+        alertId = fresh
+          .filter((a) => a.stock_name === body.stock_name)
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]?.id
+      }
+      // Le backend externe ignore ticker/sector/objectif_1/objectif_2/stop_loss —
+      // on les persiste nous-mêmes directement dans Supabase.
+      if (alertId) {
+        await linkAlertStock(alertId, {
+          ticker: form.ticker || null,
+          sector: form.sector || null,
+          objectif_1: form.objectif_1 ? Number(form.objectif_1) : null,
+          objectif_2: form.objectif_2 ? Number(form.objectif_2) : null,
+          stop_loss: form.stop_loss ? Number(form.stop_loss) : null,
+        })
+      }
       setForm(null)
       load(true)
     } catch (err) {

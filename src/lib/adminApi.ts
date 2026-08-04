@@ -47,6 +47,26 @@ export const adminApi = {
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 }
 
+// Lie une alerte à sa vraie fiche entreprise (ticker/secteur/objectifs/stop
+// loss). Passe par une fonction Supabase dédiée plutôt que par le backend
+// externe — celui-ci ignore ces champs et ne les persiste pas. Best-effort :
+// une erreur ici ne doit jamais bloquer la sauvegarde de l'alerte elle-même,
+// donc les appelants doivent l'utiliser sans faire échouer le flux principal.
+const SUPABASE_FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/link-alert-stock`
+
+export async function linkAlertStock(
+  alertId: string,
+  fields: { ticker: string | null; sector: string | null; objectif_1: number | null; objectif_2: number | null; stop_loss: number | null }
+): Promise<void> {
+  const token = getAdminToken()
+  if (!token) return
+  await fetch(SUPABASE_FUNCTIONS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ alert_id: alertId, ...fields }),
+  })
+}
+
 export async function adminLogin(email: string, password: string): Promise<{ token: string; email: string }> {
   const res = await fetch(`${baseUrl}/api/admin/login`, {
     method: 'POST',
