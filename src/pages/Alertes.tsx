@@ -4,6 +4,7 @@ import { Bell, Calendar, FileText, Tag, TrendingUp, TrendingDown, Star, Check, B
 import { useAlerts } from '../hooks/useData'
 import type { DbAlert } from '../lib/supabase'
 import { RefreshButton } from '../components/RefreshButton'
+import { NotificationBell } from '../components/NotificationBell'
 import { markAlertRead, useAlertAction } from '../hooks/useProfileStats'
 import { formatPrice } from '../lib/theme'
 import { useAppStore } from '../lib/store'
@@ -167,7 +168,7 @@ export default function Alertes() {
         </div>
         <div className="flex items-center gap-2">
           <RefreshButton onClick={refetch} loading={loading} />
-          <Bell size={22} color="#F5C842" />
+          <NotificationBell />
         </div>
       </div>
 
