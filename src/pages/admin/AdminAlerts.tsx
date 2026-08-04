@@ -134,7 +134,7 @@ export default function AdminAlerts() {
       objectif_1: form.objectif_1 ? Number(form.objectif_1) : null,
       objectif_2: form.objectif_2 ? Number(form.objectif_2) : null,
       stop_loss: form.stop_loss ? Number(form.stop_loss) : null,
-      content: JSON.stringify({ message: buildAutoMessage(form), gain_potential: avgGain != null ? formatPct(avgGain) : null }),
+      content: buildAutoMessage(form),
       is_active: form.is_active,
     }
     try {
