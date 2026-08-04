@@ -1,11 +1,10 @@
-import { useEffect, useMemo } from 'react'
-import { Bell, Calendar, Target, Zap } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Bell, Calendar, FileText, Tag, TrendingUp, TrendingDown, Star, Check, Building2 } from 'lucide-react'
 import { useAlerts } from '../hooks/useData'
 import type { DbAlert } from '../lib/supabase'
-import { SignalBadge } from '../components/SignalBadge'
 import { RefreshButton } from '../components/RefreshButton'
 import { markAlertRead } from '../hooks/useProfileStats'
-import { formatRelativeTime, formatPrice } from '../lib/theme'
+import { formatPrice } from '../lib/theme'
 import { useAppStore } from '../lib/store'
 
 function parseContent(raw: string | null) {
@@ -21,48 +20,130 @@ function parseContent(raw: string | null) {
   return { message: raw, priceMax: null, gainPotential: null }
 }
 
+// Aujourd'hui / Hier + heure locale (Côte d'Ivoire = GMT/Africa-Abidjan)
+function formatAlertDateTime(date: Date): string {
+  const tz = 'Africa/Abidjan'
+  const dayKey = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: tz })
+  const today = new Date()
+  const yesterday = new Date(today.getTime() - 86400000)
+  const time = date.toLocaleTimeString('fr-FR', { timeZone: tz, hour: '2-digit', minute: '2-digit' })
+
+  if (dayKey(date) === dayKey(today)) return `Aujourd'hui • ${time}`
+  if (dayKey(date) === dayKey(yesterday)) return `Hier • ${time}`
+  return `${date.toLocaleDateString('fr-FR', { timeZone: tz, day: '2-digit', month: 'short' })} • ${time}`
+}
+
+function Row({ icon: Icon, label, value, valueColor, last }: { icon: typeof Tag; label: string; value: string; valueColor?: string; last?: boolean }) {
+  return (
+    <div
+      className="flex items-center justify-between py-2.5"
+      style={!last ? { borderBottom: '1px solid #2A2A3A' } : undefined}
+    >
+      <span className="flex items-center gap-2 text-[11px] font-semibold tracking-wide uppercase text-textSub">
+        <Icon size={14} color="#8A8A9A" /> {label}
+      </span>
+      <span className="font-extrabold text-sm" style={{ color: valueColor ?? '#FFFFFF' }}>
+        {value}
+      </span>
+    </div>
+  )
+}
+
 function AlertCard({ alert }: { alert: DbAlert }) {
   const content = parseContent(alert.content)
-  const signal = alert.type === 'achat' ? 'ACHAT' : 'VENDRE'
-  const accent = alert.type === 'achat' ? '#22C55E' : '#EF4444'
+  const [added, setAdded] = useState(false)
+  const isBuy = alert.type === 'achat'
+  const signal = isBuy ? 'ACHAT' : 'VENDRE'
+  const accent = isBuy ? '#22C55E' : '#EF4444'
+  const opportunityBg = isBuy ? '#052E16' : '#200A0A'
+  const opportunityBorder = isBuy ? '#166534' : '#7F1D1D'
+  const OpportunityIcon = isBuy ? TrendingUp : TrendingDown
+
+  const rows: { icon: typeof Tag; label: string; value: string; valueColor?: string }[] = [
+    { icon: FileText, label: "Type d'ordre", value: signal, valueColor: accent },
+  ]
+  if (alert.price_target != null) rows.push({ icon: Tag, label: 'Cours limit', value: formatPrice(alert.price_target) })
+  if (alert.horizon) rows.push({ icon: Calendar, label: 'Horizon', value: alert.horizon === 'long' ? 'Long terme' : 'Court terme' })
+  if (content.gainPotential) rows.push({ icon: TrendingUp, label: 'Potentiel de gain moyen', value: content.gainPotential, valueColor: '#22C55E' })
+
+  function handleAddToWatch() {
+    markAlertRead(alert.id)
+    setAdded(true)
+  }
 
   return (
     <div
       onClick={() => markAlertRead(alert.id)}
-      className="rounded-2xl p-4 mb-3 cursor-pointer"
-      style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A', borderLeft: `3px solid ${accent}` }}
+      className="rounded-3xl p-4 mb-4 cursor-pointer"
+      style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
     >
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <SignalBadge signal={signal} size="sm" />
-          <span className="text-white font-bold text-sm">{alert.stock_name}</span>
-        </div>
-        <span className="text-textMuted text-xs flex items-center gap-1">
-          <Calendar size={12} /> {formatRelativeTime(new Date(alert.created_at))}
+      <div className="flex items-center justify-between mb-3">
+        <span
+          className="inline-block rounded-lg px-2.5 py-1 text-[11px] font-extrabold tracking-wide"
+          style={{ backgroundColor: opportunityBg, color: accent, border: `1.5px solid ${opportunityBorder}` }}
+        >
+          {signal}
+        </span>
+        <span className="flex items-center gap-1 text-xs text-textMuted">
+          <Calendar size={12} /> {formatAlertDateTime(new Date(alert.created_at))}
         </span>
       </div>
 
-      {content.message && <p className="text-textSub text-sm leading-relaxed mb-3">{content.message}</p>}
-
-      <div className="flex flex-wrap gap-4 mt-2">
-        {alert.price_target != null && (
-          <div className="flex items-center gap-1.5">
-            <Target size={14} color="#F5C842" />
-            <span className="text-white text-xs font-semibold">{formatPrice(alert.price_target)}</span>
-          </div>
-        )}
-        {content.gainPotential && (
-          <div className="flex items-center gap-1.5">
-            <Zap size={14} color="#22C55E" />
-            <span className="text-buy text-xs font-semibold">{content.gainPotential}</span>
-          </div>
-        )}
-        {alert.horizon && (
-          <span className="text-textMuted text-xs uppercase tracking-wide">
-            Horizon {alert.horizon === 'long' ? 'long terme' : 'court terme'}
-          </span>
-        )}
+      <div className="flex items-center gap-3 mb-3">
+        <div
+          className="flex items-center justify-center rounded-full shrink-0"
+          style={{ width: 44, height: 44, backgroundColor: '#1A1A24', border: '1.5px solid #2A2A3A' }}
+        >
+          <Building2 size={20} color="#F5C842" />
+        </div>
+        <div>
+          <p className="font-extrabold text-[17px] leading-tight text-white">{alert.stock_name}</p>
+        </div>
       </div>
+
+      <div>
+        {rows.map((r, i) => (
+          <Row key={r.label} icon={r.icon} label={r.label} value={r.value} valueColor={r.valueColor} last={i === rows.length - 1} />
+        ))}
+      </div>
+
+      <div
+        className="rounded-2xl p-3 mt-3 flex items-start gap-2.5"
+        style={{ backgroundColor: opportunityBg, border: `1px solid ${opportunityBorder}` }}
+      >
+        <OpportunityIcon size={18} color={accent} className="mt-0.5 shrink-0" />
+        <div>
+          <p className="font-extrabold text-[11px] tracking-wide uppercase mb-0.5" style={{ color: accent }}>
+            {isBuy ? 'Opportunité identifiée' : 'Signal de vente'}
+          </p>
+          <p className="text-xs leading-relaxed text-textSub">
+            {content.message ||
+              (isBuy
+                ? 'Les signaux techniques et fondamentaux indiquent un potentiel de hausse intéressant.'
+                : 'Les signaux techniques et fondamentaux indiquent un risque de baisse sur cette valeur.')}
+          </p>
+        </div>
+      </div>
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          handleAddToWatch()
+        }}
+        disabled={added}
+        className="w-full mt-3 rounded-xl py-3 flex items-center justify-center gap-2 font-extrabold text-sm"
+        style={{ backgroundColor: added ? '#22C55E' : '#F5C842', color: '#0A0A0F' }}
+      >
+        {added ? (
+          <>
+            <Check size={16} /> Ajouté au suivi
+          </>
+        ) : (
+          <>
+            <Star size={16} /> Ajouter au suivi
+          </>
+        )}
+      </button>
     </div>
   )
 }
@@ -92,6 +173,10 @@ export default function Alertes() {
           <Bell size={22} color="#F5C842" />
         </div>
       </div>
+
+      {!loading && !error && sorted.length > 0 && (
+        <p className="px-5 pb-3 text-white font-bold text-sm">Alerte Recommandée</p>
+      )}
 
       <div className="px-4">
         {loading && (
