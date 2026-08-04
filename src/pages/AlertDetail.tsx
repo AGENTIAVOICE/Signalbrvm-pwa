@@ -78,6 +78,42 @@ function generateAnalysis(stockName: string, closes: number[], rsi: number | nul
   return `${trendPhrase}, ${positionPhrase}${rsiPhrase}`
 }
 
+// Reconnaissance approximative par mots communs — plus robuste qu'une simple
+// sous-chaîne, car elle tolère les parenthèses, abréviations ou mots en plus
+// que l'admin peut avoir tapés (ex: "AFRICA GLOBAL LOGISTICS ( AGL CI )" doit
+// tout de même retrouver "AFRICA GLOBAL LOGISTICS COTE D'IVOIRE").
+function normalizeName(s: string): string {
+  return s
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function nameMatchScore(typed: string, candidate: string): number {
+  const wa = new Set(normalizeName(typed).split(' ').filter((w) => w.length > 2))
+  const wb = new Set(normalizeName(candidate).split(' ').filter((w) => w.length > 2))
+  if (wa.size === 0) return 0
+  let common = 0
+  wa.forEach((w) => {
+    if (wb.has(w)) common++
+  })
+  return common / wa.size
+}
+
+function findBestCompanyMatch(stockName: string, companies: { ticker: string; full_name: string; short_name: string | null }[]) {
+  let best: { ticker: string; full_name: string; short_name: string | null } | null = null
+  let bestScore = 0
+  for (const c of companies) {
+    const s = Math.max(nameMatchScore(stockName, c.full_name), c.short_name ? nameMatchScore(stockName, c.short_name) : 0)
+    if (s > bestScore) {
+      bestScore = s
+      best = c
+    }
+  }
+  return bestScore >= 0.5 ? best : null
+}
+
 export default function AlertDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -110,13 +146,10 @@ export default function AlertDetail() {
         if (!ticker) {
           // L'admin n'a pas (ou n'a pas pu) lier cette alerte à une fiche
           // entreprise au moment de la création — on tente de la retrouver
-          // par nom pour ne pas laisser la page vide de graphique/RSI.
-          const { data: match } = await supabase
-            .from('companies')
-            .select('ticker')
-            .or(`full_name.ilike.%${a.stock_name}%,short_name.ilike.%${a.stock_name}%`)
-            .limit(1)
-            .maybeSingle()
+          // par similarité de nom pour ne pas laisser la page vide de
+          // graphique/RSI.
+          const { data: allCompanies } = await supabase.from('companies').select('ticker, full_name, short_name')
+          const match = findBestCompanyMatch(a.stock_name, allCompanies ?? [])
           ticker = match?.ticker ?? null
         }
 
