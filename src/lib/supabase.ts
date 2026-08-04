@@ -47,6 +47,28 @@ export interface DbAlert {
   content: string | null
   is_active: boolean
   created_at: string
+  ticker: string | null
+  sector: string | null
+  objectif_1: number | null
+  objectif_2: number | null
+  stop_loss: number | null
+}
+
+export interface DbCompany {
+  ticker: string
+  full_name: string
+  short_name: string | null
+  sector: string | null
+  description: string | null
+  logo_url: string | null
+  is_active: boolean
+}
+
+export interface DbHistoryPoint {
+  ticker: string
+  day: string
+  cours: number
+  variation_pct: number | null
 }
 
 export interface DbRecommendation {

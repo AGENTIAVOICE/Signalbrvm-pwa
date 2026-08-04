@@ -7,6 +7,7 @@ import { UpdateBanner } from './components/UpdateBanner'
 import { WelcomeProModal } from './components/WelcomeProModal'
 import Auth from './pages/Auth'
 import Alertes from './pages/Alertes'
+import AlertDetail from './pages/AlertDetail'
 import Analyses from './pages/Analyses'
 import Marche from './pages/Marche'
 import Portefeuille from './pages/Portefeuille'
@@ -49,6 +50,7 @@ export default function App() {
             <Route path="/profil/parametres" element={<ProfilParametres />} />
             <Route element={<AppLayout />}>
               <Route path="/alertes" element={<Alertes />} />
+              <Route path="/alertes/:id" element={<AlertDetail />} />
               <Route path="/analyses" element={<Analyses />} />
               <Route path="/marche" element={<Marche />} />
               <Route path="/portefeuille" element={<Portefeuille />} />

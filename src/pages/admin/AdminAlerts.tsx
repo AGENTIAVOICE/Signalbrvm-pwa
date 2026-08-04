@@ -1,22 +1,44 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bell, Plus, Trash2, Edit3, EyeOff, Eye } from 'lucide-react'
+import { Bell, Plus, Trash2, Edit3, EyeOff, Eye, Building2 } from 'lucide-react'
 import { adminApi } from '../../lib/adminApi'
 import type { DbAlert } from '../../lib/supabase'
-import { formatRelativeTime } from '../../lib/theme'
+import { formatRelativeTime, formatPrice } from '../../lib/theme'
+import { CompanySearchInput } from '../../components/admin/CompanySearchInput'
 import { ScreenHeader, EmptyState, ModalSheet, FieldLabel, TextInput, TextArea, Toggle, PillGroup } from '../../components/admin/AdminUI'
 
 interface FormState {
   id?: string
   stock_name: string
+  ticker: string
+  sector: string
+  current_price: number | null
   type: 'achat' | 'vente'
   price_min: string
   price_max: string
   horizon: 'court' | 'long'
   gain_potential: string
+  objectif_1: string
+  objectif_2: string
+  stop_loss: string
   content: string
   is_active: boolean
 }
-const EMPTY: FormState = { stock_name: '', type: 'achat', price_min: '', price_max: '', horizon: 'court', gain_potential: '', content: '', is_active: true }
+const EMPTY: FormState = {
+  stock_name: '',
+  ticker: '',
+  sector: '',
+  current_price: null,
+  type: 'achat',
+  price_min: '',
+  price_max: '',
+  horizon: 'court',
+  gain_potential: '',
+  objectif_1: '',
+  objectif_2: '',
+  stop_loss: '',
+  content: '',
+  is_active: true,
+}
 
 export default function AdminAlerts() {
   const [alerts, setAlerts] = useState<DbAlert[]>([])
@@ -59,11 +81,17 @@ export default function AdminAlerts() {
     setForm({
       id: a.id,
       stock_name: a.stock_name,
+      ticker: a.ticker ?? '',
+      sector: a.sector ?? '',
+      current_price: null,
       type: a.type,
       price_min: a.price_target != null ? String(a.price_target) : '',
       price_max: priceMax,
       horizon: a.horizon ?? 'court',
       gain_potential: gain,
+      objectif_1: a.objectif_1 != null ? String(a.objectif_1) : '',
+      objectif_2: a.objectif_2 != null ? String(a.objectif_2) : '',
+      stop_loss: a.stop_loss != null ? String(a.stop_loss) : '',
       content: message,
       is_active: a.is_active,
     })
@@ -74,11 +102,16 @@ export default function AdminAlerts() {
     setSaving(true)
     const body = {
       stock_name: form.stock_name.trim(),
+      ticker: form.ticker || null,
+      sector: form.sector || null,
       type: form.type,
       price_min: form.price_min ? Number(form.price_min) : null,
       price_max: form.price_max ? Number(form.price_max) : null,
       horizon: form.horizon,
       gain_potential: form.gain_potential || null,
+      objectif_1: form.objectif_1 ? Number(form.objectif_1) : null,
+      objectif_2: form.objectif_2 ? Number(form.objectif_2) : null,
+      stop_loss: form.stop_loss ? Number(form.stop_loss) : null,
       content: form.content || null,
       is_active: form.is_active,
     }
@@ -165,7 +198,40 @@ export default function AdminAlerts() {
         <ModalSheet title={form.id ? 'Modifier alerte' : 'Nouvelle alerte'} onClose={() => setForm(null)}>
           <div>
             <FieldLabel required>Action</FieldLabel>
-            <TextInput value={form.stock_name} onChange={(v) => setForm({ ...form, stock_name: v })} placeholder="ex: BOA CI" />
+            <CompanySearchInput
+              value={form.stock_name}
+              onChange={(v) => setForm({ ...form, stock_name: v, ticker: '', sector: '', current_price: null })}
+              onSelect={(c) =>
+                setForm({
+                  ...form,
+                  stock_name: c.short_name || c.full_name,
+                  ticker: c.ticker,
+                  sector: c.sector ?? '',
+                  current_price: c.cours,
+                })
+              }
+            />
+            {form.ticker && (
+              <div
+                className="mt-2 flex items-center gap-2.5 rounded-xl px-3 py-2.5"
+                style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
+              >
+                <div
+                  className="flex items-center justify-center rounded-lg shrink-0"
+                  style={{ width: 30, height: 30, backgroundColor: '#1A1A24', border: '1px solid #2A2A3A' }}
+                >
+                  <Building2 size={14} color="#F5C842" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-xs font-bold">
+                    {form.ticker} {form.sector && `· ${form.sector}`}
+                  </p>
+                </div>
+                {form.current_price != null && (
+                  <span className="text-primary text-xs font-bold shrink-0">Cours actuel : {formatPrice(form.current_price)}</span>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
@@ -213,6 +279,18 @@ export default function AdminAlerts() {
               <div className="flex items-center justify-center rounded-xl px-4 py-3.5 text-primary font-bold" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
                 %
               </div>
+            </div>
+          </div>
+
+          <div>
+            <FieldLabel>Objectifs et stop loss</FieldLabel>
+            <p className="text-textMuted text-xs mb-2 -mt-1">
+              les % associés seront calculés automatiquement par rapport au cours actuel sur la page de détail
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <TextInput type="number" value={form.objectif_1} onChange={(v) => setForm({ ...form, objectif_1: v })} placeholder="Objectif 1" />
+              <TextInput type="number" value={form.objectif_2} onChange={(v) => setForm({ ...form, objectif_2: v })} placeholder="Objectif 2" />
+              <TextInput type="number" value={form.stop_loss} onChange={(v) => setForm({ ...form, stop_loss: v })} placeholder="Stop loss" />
             </div>
           </div>
 

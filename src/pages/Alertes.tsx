@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Bell, Calendar, FileText, Tag, TrendingUp, TrendingDown, Star, Check, Building2 } from 'lucide-react'
 import { useAlerts } from '../hooks/useData'
 import type { DbAlert } from '../lib/supabase'
@@ -50,6 +51,7 @@ function Row({ icon: Icon, label, value, valueColor, last }: { icon: typeof Tag;
 }
 
 function AlertCard({ alert }: { alert: DbAlert }) {
+  const navigate = useNavigate()
   const content = parseContent(alert.content)
   const [added, setAdded] = useState(false)
   const isBuy = alert.type === 'achat'
@@ -73,7 +75,7 @@ function AlertCard({ alert }: { alert: DbAlert }) {
 
   return (
     <div
-      onClick={() => markAlertRead(alert.id)}
+      onClick={() => navigate(`/alertes/${alert.id}`)}
       className="rounded-3xl p-4 mb-4 cursor-pointer"
       style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
     >

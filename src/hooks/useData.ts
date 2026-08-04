@@ -1,6 +1,90 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { supabase, type DbAnalysis, type DbAlert, type DbRecommendation, type BrvmRow } from '../lib/supabase'
+import { supabase, type DbAnalysis, type DbAlert, type DbRecommendation, type BrvmRow, type DbCompany, type DbHistoryPoint } from '../lib/supabase'
 import { api } from '../lib/api'
+
+// ── Recherche d'entreprises (auto-suggestion admin) ─────────────────────────
+// Cherche par nom ou ticker dans `companies`, complète avec le cours en
+// direct depuis `brvm_cours` — tout est réel, rien n'est inventé.
+export interface CompanySuggestion extends DbCompany {
+  cours: number | null
+  variation_pct: number | null
+}
+
+export async function searchCompanies(query: string): Promise<CompanySuggestion[]> {
+  const q = query.trim()
+  if (!q) return []
+  const { data: companies, error } = await supabase
+    .from('companies')
+    .select('*')
+    .or(`full_name.ilike.%${q}%,short_name.ilike.%${q}%,ticker.ilike.%${q}%`)
+    .eq('is_active', true)
+    .limit(8)
+  if (error || !companies) return []
+
+  const tickers = companies.map((c) => c.ticker)
+  const { data: cours } = await supabase.from('brvm_cours').select('ticker, cours, variation_pct').in('ticker', tickers)
+  const coursByTicker = new Map((cours ?? []).map((c) => [c.ticker, c]))
+
+  return (companies as DbCompany[]).map((c) => ({
+    ...c,
+    cours: coursByTicker.get(c.ticker)?.cours ?? null,
+    variation_pct: coursByTicker.get(c.ticker)?.variation_pct ?? null,
+  }))
+}
+
+// ── Historique de prix réel + RSI(14) ───────────────────────────────────────
+export function useStockHistory(ticker: string | null) {
+  const [history, setHistory] = useState<DbHistoryPoint[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!ticker) {
+      setHistory([])
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    supabase
+      .from('brvm_history')
+      .select('ticker, day, cours, variation_pct')
+      .eq('ticker', ticker)
+      .order('day', { ascending: true })
+      .then(({ data }) => {
+        if (!cancelled) {
+          setHistory((data ?? []) as DbHistoryPoint[])
+          setLoading(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [ticker])
+
+  return { history, loading }
+}
+
+// RSI(14) selon la méthode de Wilder, calculé sur des clôtures réelles.
+// Retourne null tant qu'il n'y a pas au moins 15 points (période + 1).
+export function computeRSI(closes: number[], period = 14): number | null {
+  if (closes.length < period + 1) return null
+  const gains: number[] = []
+  const losses: number[] = []
+  for (let i = 1; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1]
+    gains.push(Math.max(diff, 0))
+    losses.push(Math.max(-diff, 0))
+  }
+  let avgGain = gains.slice(0, period).reduce((a, b) => a + b, 0) / period
+  let avgLoss = losses.slice(0, period).reduce((a, b) => a + b, 0) / period
+  for (let i = period; i < gains.length; i++) {
+    avgGain = (avgGain * (period - 1) + gains[i]) / period
+    avgLoss = (avgLoss * (period - 1) + losses[i]) / period
+  }
+  if (avgLoss === 0) return 100
+  const rs = avgGain / avgLoss
+  return 100 - 100 / (1 + rs)
+}
 
 let channelCounter = 0
 
