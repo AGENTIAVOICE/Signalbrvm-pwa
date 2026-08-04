@@ -12,6 +12,7 @@ import Alertes from './pages/Alertes'
 import AlertDetail from './pages/AlertDetail'
 import Analyses from './pages/Analyses'
 import Marche from './pages/Marche'
+import MarcheDetail from './pages/MarcheDetail'
 import Portefeuille from './pages/Portefeuille'
 import SimulationDetail from './pages/SimulationDetail'
 import Profil from './pages/Profil'
@@ -62,6 +63,7 @@ export default function App() {
               <Route path="/alertes/:id" element={<AlertDetail />} />
               <Route path="/analyses" element={<Analyses />} />
               <Route path="/marche" element={<Marche />} />
+              <Route path="/marche/:ticker" element={<MarcheDetail />} />
               <Route path="/portefeuille" element={<Portefeuille />} />
               <Route path="/portefeuille/:ticker" element={<SimulationDetail />} />
               <Route path="/profil" element={<Profil />} />

@@ -73,6 +73,29 @@ export const sendChatMessage = async (messages: ChatMessage[]): Promise<{ reply:
   return json.data as { reply: string }
 }
 
+// ── Analyse de marché IA (page Marché) ──────────────────────────────────────
+export interface MarketMetrics {
+  stockName: string
+  ticker: string
+  sector?: string | null
+  cours: number
+  dayChangePct?: number | null
+  trendPct?: number | null
+  rsi?: number | null
+  rangeLowPct?: number | null
+  rangeHighPct?: number | null
+}
+export const getMarketAnalysis = async (metrics: MarketMetrics): Promise<{ analysis: string }> => {
+  const res = await fetch('/.netlify/functions/market-analysis', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(metrics),
+  })
+  const json: { data?: { analysis: string }; error?: { message: string } } = await res.json().catch(() => ({}))
+  if (!res.ok || json.error) throw new Error(json.error?.message ?? `Erreur ${res.status}`)
+  return json.data as { analysis: string }
+}
+
 // ── Formations ───────────────────────────────────────────────────────────────
 // Note : l'achat individuel par niveau (Wave/mobile money) a été retiré —
 // le plan Pro (paiement unique via Chariow) débloque désormais tout.

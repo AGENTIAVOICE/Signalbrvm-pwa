@@ -1,4 +1,5 @@
 import { Activity } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useBrvmMarket } from '../hooks/useData'
 import { useAuth } from '../context/AuthContext'
 import { ProLock } from '../components/ProLock'
@@ -22,6 +23,7 @@ export default function Marche() {
 }
 
 function MarcheInner() {
+  const navigate = useNavigate()
   const { rows, loading, error, refetch } = useBrvmMarket()
 
   const lastUpdated = rows
@@ -68,9 +70,10 @@ function MarcheInner() {
         {!loading && !error && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {rows.map((r) => (
-              <div
+              <button
                 key={r.ticker}
-                className="rounded-xl p-3"
+                onClick={() => navigate(`/marche/${r.ticker}`)}
+                className="rounded-xl p-3 text-left tappable"
                 style={{ backgroundColor: '#111118', border: `1px solid ${varColor(r.variation_pct)}33` }}
               >
                 <div className="flex items-center justify-between mb-1">
@@ -84,7 +87,7 @@ function MarcheInner() {
                 <p className="text-xs font-bold mt-0.5" style={{ color: varColor(r.variation_pct) }}>
                   {r.variation_pct != null ? formatPercent(r.variation_pct) : '—'}
                 </p>
-              </div>
+              </button>
             ))}
           </div>
         )}
