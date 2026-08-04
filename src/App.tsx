@@ -5,6 +5,7 @@ import { AppLayout } from './components/AppLayout'
 import { AdminProtectedRoute, AdminLayout } from './components/AdminLayout'
 import { UpdateBanner } from './components/UpdateBanner'
 import { WelcomeProModal } from './components/WelcomeProModal'
+import { useSwipeBack } from './hooks/useSwipeBack'
 import Auth from './pages/Auth'
 import Alertes from './pages/Alertes'
 import AlertDetail from './pages/AlertDetail'
@@ -23,12 +24,18 @@ import AdminAlerts from './pages/admin/AdminAlerts'
 import AdminAnalyses from './pages/admin/AdminAnalyses'
 import AdminFormations from './pages/admin/AdminFormations'
 
+function SwipeBack() {
+  useSwipeBack()
+  return null
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <UpdateBanner />
         <WelcomeProModal />
+        <SwipeBack />
         <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin/login" element={<AdminLogin />} />

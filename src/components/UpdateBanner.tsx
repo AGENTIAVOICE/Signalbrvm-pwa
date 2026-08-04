@@ -3,18 +3,18 @@ import { useEffect, useRef } from 'react'
 import { registerSW } from 'virtual:pwa-register'
 
 // Mise à jour silencieuse : dès qu'une nouvelle version est détectée, on
-// l'applique automatiquement — sans bannière ni clic. Pour ne jamais couper
-// l'utilisateur en pleine action (saisie, lecture), on n'applique le
-// rechargement que lorsque l'onglet repasse en arrière-plan ou reprend le
-// focus (changement d'appli, verrouillage d'écran, retour sur l'onglet) :
-// à ce moment-là il n'y a rien à perdre visuellement.
+// l'applique automatiquement — sans bannière ni clic. Le rechargement ne se
+// déclenche QUE lorsque l'onglet passe en arrière-plan (écran verrouillé,
+// changement d'appli) — jamais quand l'utilisateur revient dessus, sinon la
+// page se recharge sous ses yeux et toute l'interface (y compris la barre du
+// bas) disparaît un instant avant de se reconstruire.
 export function UpdateBanner() {
   const pendingUpdate = useRef<((reload?: boolean) => Promise<void>) | null>(null)
   const needRefresh = useRef(false)
 
   useEffect(() => {
-    function applyIfPending() {
-      if (needRefresh.current && pendingUpdate.current) {
+    function applyIfHidden() {
+      if (document.visibilityState === 'hidden' && needRefresh.current && pendingUpdate.current) {
         pendingUpdate.current(true)
       }
     }
@@ -23,10 +23,7 @@ export function UpdateBanner() {
       immediate: true,
       onNeedRefresh() {
         needRefresh.current = true
-        // Si l'utilisateur n'est pas en train de regarder l'écran
-        // maintenant (onglet déjà en arrière-plan), on applique tout de
-        // suite plutôt que d'attendre un futur changement de visibilité.
-        if (document.visibilityState === 'hidden') applyIfPending()
+        applyIfHidden()
       },
       onRegisteredSW(_url: string, registration: ServiceWorkerRegistration | undefined) {
         // Revérifie s'il existe une nouvelle version toutes les 60 minutes,
@@ -37,8 +34,8 @@ export function UpdateBanner() {
     })
     pendingUpdate.current = update
 
-    document.addEventListener('visibilitychange', applyIfPending)
-    return () => document.removeEventListener('visibilitychange', applyIfPending)
+    document.addEventListener('visibilitychange', applyIfHidden)
+    return () => document.removeEventListener('visibilitychange', applyIfHidden)
   }, [])
 
   return null
