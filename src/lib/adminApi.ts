@@ -59,12 +59,22 @@ export async function linkAlertStock(
   fields: { ticker: string | null; sector: string | null; objectif_1: number | null; objectif_2: number | null; stop_loss: number | null }
 ): Promise<void> {
   const token = getAdminToken()
-  if (!token) return
-  await fetch(SUPABASE_FUNCTIONS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ alert_id: alertId, ...fields }),
-  })
+  if (!token) {
+    console.error('linkAlertStock: pas de token admin, appel annulé')
+    return
+  }
+  try {
+    const res = await fetch(SUPABASE_FUNCTIONS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ alert_id: alertId, ...fields }),
+    })
+    if (!res.ok) {
+      console.error('linkAlertStock: échec', res.status, await res.text().catch(() => ''))
+    }
+  } catch (err) {
+    console.error('linkAlertStock: erreur réseau', err)
+  }
 }
 
 export async function adminLogin(email: string, password: string): Promise<{ token: string; email: string }> {

@@ -13,11 +13,77 @@ function pct(target: number | null, base: number | null): string | null {
   return `${sign}${v.toFixed(1)}%`
 }
 
+// Le contenu admin peut être un message brut, ou un JSON {message, price_max,
+// gain_potential} produit par l'ancien formulaire — dans les deux cas, on
+// n'affiche jamais le JSON brut à l'utilisateur.
+function parseContent(raw: string | null): string {
+  if (!raw) return ''
+  try {
+    const p = JSON.parse(raw)
+    if (typeof p === 'object' && p !== null && 'message' in p) return p.message || ''
+  } catch {
+    /* texte brut */
+  }
+  return raw
+}
+
+// Niveau de risque calculé à partir de signaux réels (RSI + amplitude de
+// variation sur la période observée) — jamais saisi par l'admin.
+function computeRiskLevel(rsi: number | null, closes: number[]): string | null {
+  if (closes.length < 2) return null
+  const mn = Math.min(...closes)
+  const mx = Math.max(...closes)
+  const amplitude = mn > 0 ? ((mx - mn) / mn) * 100 : 0
+  const rsiExtreme = rsi != null && (rsi >= 75 || rsi <= 25)
+  if (amplitude >= 25 || rsiExtreme) return 'Élevé'
+  if (amplitude >= 12) return 'Modéré'
+  return 'Faible'
+}
+
+// Petite analyse générée automatiquement à partir de chiffres réels
+// (tendance sur la période, position dans le range, RSI) — jamais rédigée
+// par l'admin.
+function generateAnalysis(stockName: string, closes: number[], rsi: number | null): string | null {
+  if (closes.length < 2) return null
+  const first = closes[0]
+  const last = closes[closes.length - 1]
+  const trendPct = first > 0 ? ((last - first) / first) * 100 : 0
+  const mn = Math.min(...closes)
+  const mx = Math.max(...closes)
+  const nearHigh = mx > mn && last >= mn + (mx - mn) * 0.85
+  const nearLow = mx > mn && last <= mn + (mx - mn) * 0.15
+
+  const trendPhrase =
+    trendPct > 3
+      ? `${stockName} est en tendance haussière sur la période observée (${trendPct > 0 ? '+' : ''}${trendPct.toFixed(1)}%)`
+      : trendPct < -3
+        ? `${stockName} est en tendance baissière sur la période observée (${trendPct.toFixed(1)}%)`
+        : `${stockName} évolue de façon plutôt stable sur la période observée (${trendPct > 0 ? '+' : ''}${trendPct.toFixed(1)}%)`
+
+  const positionPhrase = nearHigh
+    ? 'le cours se situe actuellement proche de son plus haut sur la période.'
+    : nearLow
+      ? 'le cours se situe actuellement proche de son plus bas sur la période.'
+      : 'le cours évolue actuellement dans le milieu de sa fourchette récente.'
+
+  const rsiPhrase =
+    rsi == null
+      ? ''
+      : rsi >= 70
+        ? ` Le RSI (14) à ${rsi.toFixed(1)} indique une zone de surachat.`
+        : rsi <= 30
+          ? ` Le RSI (14) à ${rsi.toFixed(1)} indique une zone de survente.`
+          : ` Le RSI (14) à ${rsi.toFixed(1)} reste en zone neutre.`
+
+  return `${trendPhrase}, ${positionPhrase}${rsiPhrase}`
+}
+
 export default function AlertDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [alert, setAlert] = useState<DbAlert | null>(null)
   const [company, setCompany] = useState<DbCompany | null>(null)
+  const [resolvedTicker, setResolvedTicker] = useState<string | null>(null)
   const [currentPrice, setCurrentPrice] = useState<number | null>(null)
   const [dayChange, setDayChange] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
@@ -39,12 +105,28 @@ export default function AlertDetail() {
         const a = data as DbAlert
         setAlert(a)
         markAlertRead(a.id)
-        if (a.ticker) {
+
+        let ticker = a.ticker
+        if (!ticker) {
+          // L'admin n'a pas (ou n'a pas pu) lier cette alerte à une fiche
+          // entreprise au moment de la création — on tente de la retrouver
+          // par nom pour ne pas laisser la page vide de graphique/RSI.
+          const { data: match } = await supabase
+            .from('companies')
+            .select('ticker')
+            .or(`full_name.ilike.%${a.stock_name}%,short_name.ilike.%${a.stock_name}%`)
+            .limit(1)
+            .maybeSingle()
+          ticker = match?.ticker ?? null
+        }
+
+        if (ticker) {
           const [{ data: comp }, { data: cours }] = await Promise.all([
-            supabase.from('companies').select('*').eq('ticker', a.ticker).maybeSingle(),
-            supabase.from('brvm_cours').select('cours, variation_pct').eq('ticker', a.ticker).maybeSingle(),
+            supabase.from('companies').select('*').eq('ticker', ticker).maybeSingle(),
+            supabase.from('brvm_cours').select('cours, variation_pct').eq('ticker', ticker).maybeSingle(),
           ])
           if (!cancelled) {
+            setResolvedTicker(ticker)
             setCompany((comp as DbCompany) ?? null)
             setCurrentPrice(cours?.cours ?? null)
             setDayChange(cours?.variation_pct ?? null)
@@ -57,7 +139,7 @@ export default function AlertDetail() {
     }
   }, [id])
 
-  const { history } = useStockHistory(alert?.ticker ?? null)
+  const { history } = useStockHistory(resolvedTicker)
   const closes = history.map((h) => h.cours)
   const rsi = computeRSI(closes)
   const { saved, notify, toggleSaved, toggleNotify } = useAlertAction(alert?.id ?? null)
@@ -106,6 +188,11 @@ export default function AlertDetail() {
   }
 
   const rsiLabel = rsi == null ? null : rsi >= 70 ? 'suracheté' : rsi <= 30 ? 'survendu' : 'neutre'
+  const sector = alert.sector || company?.sector || null
+  const riskLevel = alert.risk_level || computeRiskLevel(rsi, closes)
+  const analysis = generateAnalysis(alert.stock_name, closes, rsi)
+  const adminNote = parseContent(alert.content)
+  const horizonLabel = alert.horizon === 'long' ? 'Long terme (6-12 mois)' : alert.horizon === 'court' ? 'Court terme (1-3 mois)' : null
 
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: '#0A0A0F' }}>
@@ -207,7 +294,10 @@ export default function AlertDetail() {
 
         <div className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
           <p className="text-textMuted text-[10px] font-bold uppercase tracking-wide mb-2.5">Détails de l'alerte</p>
-          {alert.sector && <DetailRow label="Secteur" value={alert.sector} />}
+          <DetailRow label="Actif" value={alert.stock_name} />
+          {sector && <DetailRow label="Secteur" value={sector} />}
+          {currentPrice != null && <DetailRow label="Cours actuel" value={formatPrice(currentPrice)} />}
+          {alert.price_target != null && <DetailRow label={`Cours limite (${isBuy ? 'achat' : 'vente'})`} value={formatPrice(alert.price_target)} />}
           {alert.objectif_1 != null && (
             <DetailRow label="Objectif 1" value={`${formatPrice(alert.objectif_1)}${pct(alert.objectif_1, currentPrice) ? ` (${pct(alert.objectif_1, currentPrice)})` : ''}`} color="#22C55E" />
           )}
@@ -217,13 +307,30 @@ export default function AlertDetail() {
           {alert.stop_loss != null && (
             <DetailRow label="Stop loss" value={`${formatPrice(alert.stop_loss)}${pct(alert.stop_loss, currentPrice) ? ` (${pct(alert.stop_loss, currentPrice)})` : ''}`} color="#EF4444" />
           )}
-          {alert.risk_level && <DetailRow label="Niveau de risque" value={alert.risk_level} color="#F5C842" last />}
+          {(() => {
+            const p1 = pct(alert.objectif_1, alert.price_target)
+            const p2 = pct(alert.objectif_2, alert.price_target)
+            if (!p1 && !p2) return null
+            const nums = [p1, p2].filter(Boolean).map((s) => parseFloat(s as string))
+            const avg = nums.reduce((a, b) => a + b, 0) / nums.length
+            return <DetailRow label="Potentiel de gain moyen" value={`${avg > 0 ? '+' : ''}${avg.toFixed(1)}%`} color="#22C55E" />
+          })()}
+          {horizonLabel && <DetailRow label="Horizon recommandé" value={horizonLabel} />}
+          {riskLevel && <DetailRow label="Niveau de risque" value={riskLevel} color="#F5C842" last />}
         </div>
 
-        {alert.content && (
+        {(analysis || adminNote) && (
           <div className="rounded-2xl p-3 flex gap-2.5" style={{ backgroundColor: accentBg, border: `1px solid ${accentBorder}` }}>
             <Lightbulb size={16} color={accent} className="mt-0.5 shrink-0" />
-            <p className="text-textSub text-xs leading-relaxed">{alert.content}</p>
+            <div className="flex flex-col gap-1.5">
+              {analysis && <p className="text-textSub text-xs leading-relaxed">{analysis}</p>}
+              {adminNote && (
+                <p className="text-textSub text-xs leading-relaxed italic">
+                  {analysis ? 'Note de l\u2019admin : ' : ''}
+                  {adminNote}
+                </p>
+              )}
+            </div>
           </div>
         )}
 
