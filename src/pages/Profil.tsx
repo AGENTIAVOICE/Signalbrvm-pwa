@@ -54,7 +54,7 @@ export default function Profil() {
         </div>
         <button
           onClick={() => navigate('/profil/parametres')}
-          className="flex items-center justify-center rounded-2xl"
+          className="flex items-center justify-center rounded-2xl tappable"
           style={{ width: 44, height: 44, backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
         >
           <Settings size={20} color="#8A8A9A" />
@@ -140,7 +140,7 @@ export default function Profil() {
           ) : (
             <button
               onClick={() => navigate('/profil-investisseur')}
-              className="w-full rounded-2xl p-5 text-left"
+              className="w-full rounded-2xl p-5 text-left tappable"
               style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
             >
               <p className="text-white font-bold text-sm mb-1">Découvrez votre profil de risque</p>

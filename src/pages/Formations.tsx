@@ -80,7 +80,7 @@ export default function Formations() {
                     <button
                       key={v.id}
                       onClick={() => setActiveVideo(v)}
-                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-left"
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-left tappable"
                       style={{ backgroundColor: '#1A1A24' }}
                     >
                       <Play size={14} color="#F5C842" />

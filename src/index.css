@@ -86,3 +86,20 @@ input, button {
     animation: none;
   }
 }
+
+/* Retour tactile sur tout élément cliquable qui ouvre plus de détails —
+   léger tassement au clic, comme sur une app native. */
+.tappable {
+  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tappable:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tappable:active {
+    transform: none;
+  }
+}

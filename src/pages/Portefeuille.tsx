@@ -370,7 +370,7 @@ function SimPositionCard({ position, onOpen }: { position: SimPosition; onOpen: 
   const pnlPct = position.avg_buy_price > 0 ? ((cours - position.avg_buy_price) / position.avg_buy_price) * 100 : 0
   const up = pnl >= 0
   return (
-    <button onClick={onOpen} className="w-full text-left rounded-xl p-3" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
+    <button onClick={onOpen} className="w-full text-left rounded-xl p-3 tappable" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
       <div className="flex items-center justify-between mb-1.5">
         <p className="text-white text-sm font-bold">{position.stock_name}</p>
         <span className="font-extrabold text-xs" style={{ color: up ? '#22C55E' : '#EF4444' }}>
@@ -506,7 +506,7 @@ function PendingCard({ row, onValidate, onReject, onOpen }: { row: FollowedAlert
   const { alert } = row
   return (
     <div className="rounded-xl p-3 flex items-center justify-between" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
-      <button onClick={onOpen} className="flex items-center gap-2 flex-1 text-left min-w-0">
+      <button onClick={onOpen} className="flex items-center gap-2 flex-1 text-left min-w-0 tappable">
         {alert.type === 'achat' ? <TrendingUp size={16} color="#22C55E" className="shrink-0" /> : <TrendingDown size={16} color="#EF4444" className="shrink-0" />}
         <span className="text-white text-sm font-semibold truncate">{alert.stock_name}</span>
       </button>
@@ -526,7 +526,7 @@ function PositionCard({ row, onOpen, onClose }: { row: FollowedAlert; onOpen: ()
   const { alert, cours, variation_pct } = row
   return (
     <div className="rounded-xl p-3 flex items-center justify-between" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
-      <button onClick={onOpen} className="flex items-center gap-2 flex-1 text-left min-w-0">
+      <button onClick={onOpen} className="flex items-center gap-2 flex-1 text-left min-w-0 tappable">
         {alert.type === 'achat' ? <TrendingUp size={16} color="#22C55E" className="shrink-0" /> : <TrendingDown size={16} color="#EF4444" className="shrink-0" />}
         <div className="min-w-0">
           <p className="text-white text-sm font-semibold truncate">{alert.stock_name}</p>

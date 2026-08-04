@@ -72,7 +72,7 @@ function AlertCard({ alert }: { alert: DbAlert }) {
   return (
     <div
       onClick={() => navigate(`/alertes/${alert.id}`)}
-      className="rounded-3xl p-4 mb-4 cursor-pointer"
+      className="rounded-3xl p-4 mb-4 cursor-pointer tappable"
       style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
     >
       <div className="flex items-center justify-between mb-3">

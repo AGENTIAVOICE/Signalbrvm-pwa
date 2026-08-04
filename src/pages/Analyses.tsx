@@ -68,7 +68,7 @@ export default function Analyses() {
           <button
             key={a.id}
             onClick={() => openAnalysis(a)}
-            className="w-full text-left rounded-2xl p-4 mb-3"
+            className="w-full text-left rounded-2xl p-4 mb-3 tappable"
             style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
           >
             <div className="flex items-center justify-between mb-2">
