@@ -8,6 +8,7 @@ import { WelcomeProModal } from './components/WelcomeProModal'
 import { useSwipeBack } from './hooks/useSwipeBack'
 import { PageFade } from './components/PageFade'
 import Auth from './pages/Auth'
+import ResetPassword from './pages/ResetPassword'
 import Alertes from './pages/Alertes'
 import AlertDetail from './pages/AlertDetail'
 import Analyses from './pages/Analyses'
@@ -41,6 +42,7 @@ export default function App() {
         <SwipeBack />
         <Routes>
           <Route path="/auth" element={<PageFade><Auth /></PageFade>} />
+          <Route path="/reset-password" element={<PageFade><ResetPassword /></PageFade>} />
           <Route path="/admin/login" element={<PageFade><AdminLogin /></PageFade>} />
 
           <Route element={<AdminProtectedRoute />}>

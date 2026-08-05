@@ -16,6 +16,30 @@ export default function Auth() {
   const [error, setError] = useState('')
   const [errorType, setErrorType] = useState<'error' | 'warning'>('error')
 
+  const [forgotOpen, setForgotOpen] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotSending, setForgotSending] = useState(false)
+  const [forgotSent, setForgotSent] = useState(false)
+  const [forgotError, setForgotError] = useState('')
+
+  async function handleForgotPassword() {
+    if (!forgotEmail.trim()) {
+      setForgotError('Entrez votre email')
+      return
+    }
+    setForgotError('')
+    setForgotSending(true)
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    setForgotSending(false)
+    if (resetError) {
+      setForgotError("Impossible d'envoyer l'email pour le moment. Réessayez plus tard.")
+      return
+    }
+    setForgotSent(true)
+  }
+
   // Accès admin secret : taper le logo 7 fois
   const [logoTapCount, setLogoTapCount] = useState(0)
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -181,6 +205,61 @@ export default function Auth() {
               </button>
             </div>
           </div>
+
+          {mode === 'login' && !forgotOpen && (
+            <button
+              onClick={() => {
+                setForgotOpen(true)
+                setForgotEmail(email)
+                setForgotSent(false)
+                setForgotError('')
+              }}
+              className="text-right text-xs font-semibold -mt-2"
+              style={{ color: '#F5C842' }}
+            >
+              Mot de passe oublié ?
+            </button>
+          )}
+
+          {mode === 'login' && forgotOpen && (
+            <div className="rounded-xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
+              {forgotSent ? (
+                <p className="text-buy text-sm leading-relaxed">
+                  Si un compte existe avec cet email, un lien de réinitialisation vient d'être envoyé. Vérifiez votre boîte de réception (et vos spams).
+                </p>
+              ) : (
+                <>
+                  <p className="text-textSub text-xs mb-3">Recevez un lien par email pour choisir un nouveau mot de passe.</p>
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="vous@exemple.com"
+                    className="w-full rounded-xl px-4 py-3 text-white outline-none placeholder:text-textMuted mb-3"
+                    style={{ backgroundColor: '#1A1A24', border: '1px solid #2A2A3A' }}
+                  />
+                  {forgotError && <p className="text-sell text-xs mb-3">{forgotError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setForgotOpen(false)}
+                      className="flex-1 py-2.5 rounded-xl text-xs font-bold text-textSub"
+                      style={{ border: '1px solid #2A2A3A' }}
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={handleForgotPassword}
+                      disabled={forgotSending}
+                      className="flex-1 py-2.5 rounded-xl text-xs font-extrabold disabled:opacity-50"
+                      style={{ backgroundColor: '#F5C842', color: '#0A0A0F' }}
+                    >
+                      {forgotSending ? 'Envoi…' : 'Envoyer le lien'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           {error && (
             <div
