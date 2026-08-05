@@ -8,6 +8,8 @@ import { RiskBadge } from '../components/RiskBadge'
 import { RefreshButton } from '../components/RefreshButton'
 import { formatGMTDate, formatPrice } from '../lib/theme'
 import { markAnalysisRead } from '../hooks/useProfileStats'
+import { useAuth } from '../context/AuthContext'
+import { ProTeaser } from '../components/ProTeaser'
 
 function AnalysisMarketPanel({ ticker }: { ticker: string }) {
   const [cours, setCours] = useState<number | null>(null)
@@ -104,6 +106,7 @@ function AnalysisMarketPanel({ ticker }: { ticker: string }) {
 
 export default function Analyses() {
   const navigate = useNavigate()
+  const { isPro } = useAuth()
   const { analyses, loading, error, refetch } = useAnalyses()
   const [selected, setSelected] = useState<DbAnalysis | null>(null)
 
@@ -207,8 +210,24 @@ export default function Analyses() {
                 <span className="text-buy text-sm font-bold">+{selected.potential_percent}% potentiel</span>
               )}
             </div>
-            <p className="text-textSub text-sm leading-7 whitespace-pre-wrap">{selected.content}</p>
-            {selected.ticker && <AnalysisMarketPanel ticker={selected.ticker} />}
+            <p className="text-textSub text-sm leading-7 whitespace-pre-wrap">
+              {isPro ? selected.content : (selected.content ?? '').slice(0, 160)}
+              {!isPro && (selected.content ?? '').length > 160 && '…'}
+            </p>
+            {!isPro && (
+              <div className="mt-2">
+                <ProTeaser
+                  compact
+                  title="Analyse complète + données de marché"
+                  description="Lisez l'analyse en entier et le graphique réel de la valeur avec Pro."
+                >
+                  <p className="text-textSub text-sm leading-7">
+                    {(selected.content ?? '').slice(160, 400) || 'Suite de l\u2019analyse et données de marché réservées au plan Pro.'}
+                  </p>
+                </ProTeaser>
+              </div>
+            )}
+            {isPro && selected.ticker && <AnalysisMarketPanel ticker={selected.ticker} />}
           </div>
         </div>
       )}

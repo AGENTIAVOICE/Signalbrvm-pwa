@@ -7,6 +7,8 @@ import { usePortfolioSimulator, type SimPosition } from '../hooks/usePortfolioSi
 import { useCurrencyFormat } from '../hooks/useCurrencyFormat'
 import { RefreshButton } from '../components/RefreshButton'
 import { getProfile, PROFILE_COLORS } from '../lib/profilInvestisseurData'
+import { useAuth } from '../context/AuthContext'
+import { ProTeaser } from '../components/ProTeaser'
 import { formatPrice } from '../lib/theme'
 
 const ALLOCATION_BY_KEY: Record<string, { actions: number; obligations: number; liquidites: number }> = {
@@ -34,6 +36,7 @@ function AllocationRing({ allocations }: { allocations: { color: string; percent
 
 export default function Portefeuille() {
   const navigate = useNavigate()
+  const { isPro } = useAuth()
   const { pending, validated, closed, loading, refetch, validate, reject, closePosition, setTradeDecision } = useFollowedAlerts()
   const { result: quizResult, capital, updateCapital } = useProfilInvestisseur()
   const sim = usePortfolioSimulator()
@@ -114,6 +117,15 @@ export default function Portefeuille() {
 
       <div className="px-4 flex flex-col gap-4">
         {/* Capital & simulateur */}
+        {!isPro ? (
+          <ProTeaser
+            title="Simulateur d'ordres illimité"
+            description="Passez à Pro pour simuler vos achats/ventes au cours réel et suivre votre gain ou perte en temps réel sur chaque position."
+          >
+            <div className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A', height: 260 }} />
+          </ProTeaser>
+        ) : (
+          <>
         <section
           className="rounded-2xl p-4 relative overflow-hidden"
           style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
@@ -235,6 +247,8 @@ export default function Portefeuille() {
             </div>
           </section>
         )}
+          </>
+        )}
 
         {/* Allocation cible */}
         {!profile ? (
@@ -246,6 +260,13 @@ export default function Portefeuille() {
             <p className="text-white font-bold text-sm mb-1">Déterminez votre profil de risque</p>
             <p className="text-textSub text-xs">Nécessaire pour calculer une allocation cible personnalisée.</p>
           </button>
+        ) : !isPro ? (
+          <ProTeaser
+            title="Allocation cible intelligente"
+            description="Passez à Pro pour voir la répartition actions/obligations/liquidités recommandée pour votre profil, avec les montants en FCFA."
+          >
+            <div className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A', height: 130 }} />
+          </ProTeaser>
         ) : (
           <section className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
             <h3 className="text-white font-bold text-sm mb-3">Allocation cible — Profil {profile.label}</h3>
@@ -268,7 +289,7 @@ export default function Portefeuille() {
           </section>
         )}
 
-        {profile && (
+        {profile && isPro && (
           <section className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
             <h3 className="text-white font-bold text-sm mb-2 flex items-center gap-2">
               <ShieldCheck size={16} color="#F5C842" /> Test de résistance (-10% BRVM)
@@ -288,7 +309,7 @@ export default function Portefeuille() {
           </section>
         )}
 
-        {profile && (
+        {profile && isPro && (
           <section className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: `1px solid ${toneColor}44` }}>
             <h3 className="font-bold text-sm mb-1 flex items-center gap-2" style={{ color: toneColor }}>
               <Zap size={16} /> {headline}

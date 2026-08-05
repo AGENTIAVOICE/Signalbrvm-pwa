@@ -3,8 +3,6 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBrvmMarket } from '../hooks/useData'
 import { usePortfolioSimulator } from '../hooks/usePortfolioSimulator'
-import { useAuth } from '../context/AuthContext'
-import { ProLock } from '../components/ProLock'
 import { RefreshButton } from '../components/RefreshButton'
 import { formatPrice, formatPercent, formatRelativeTime } from '../lib/theme'
 
@@ -31,8 +29,6 @@ function SortButton({ active, onClick, icon: Icon, label }: { active: boolean; o
 }
 
 export default function Marche() {
-  const { isPro } = useAuth()
-  if (!isPro) return <ProLock />
   return <MarcheInner />
 }
 
