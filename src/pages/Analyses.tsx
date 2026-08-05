@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { BarChart2, X, Calendar, Percent, TrendingUp, Building2 } from 'lucide-react'
+import { BarChart2, X, Calendar, Percent, Building2 } from 'lucide-react'
 import { useAnalyses } from '../hooks/useData'
 import { useStockHistory, computeRSI } from '../hooks/useData'
 import { supabase, type DbAnalysis } from '../lib/supabase'
 import { RiskBadge } from '../components/RiskBadge'
 import { RefreshButton } from '../components/RefreshButton'
+import { NotificationBell } from '../components/NotificationBell'
 import { formatGMTDate, formatPrice } from '../lib/theme'
-import { markAnalysisRead } from '../hooks/useProfileStats'
+import { markAnalysisRead, useReadIds } from '../hooks/useProfileStats'
+import { useAppStore } from '../lib/store'
 import { useAuth } from '../context/AuthContext'
 import { ProTeaser } from '../components/ProTeaser'
+import { RichText, stripRichText } from '../components/RichText'
 
 function AnalysisMarketPanel({ ticker }: { ticker: string }) {
   const [cours, setCours] = useState<number | null>(null)
@@ -105,14 +107,21 @@ function AnalysisMarketPanel({ ticker }: { ticker: string }) {
 }
 
 export default function Analyses() {
-  const navigate = useNavigate()
   const { isPro } = useAuth()
   const { analyses, loading, error, refetch } = useAnalyses()
   const [selected, setSelected] = useState<DbAnalysis | null>(null)
+  const { ids: readIds, loaded: readsLoaded, refresh: refreshReadIds } = useReadIds('analysis')
+  const setUnreadAnalyses = useAppStore((s) => s.setUnreadAnalysesCount)
+
+  useEffect(() => {
+    if (!readsLoaded) return
+    setUnreadAnalyses(analyses.filter((a) => !readIds.has(a.id)).length)
+  }, [analyses, readIds, readsLoaded, setUnreadAnalyses])
 
   function openAnalysis(a: DbAnalysis) {
     setSelected(a)
     markAnalysisRead(a.id)
+    refreshReadIds()
   }
 
   return (
@@ -124,17 +133,10 @@ export default function Analyses() {
         </div>
         <div className="flex items-center gap-2">
           <RefreshButton onClick={refetch} loading={loading} />
-          <BarChart2 size={22} color="#F5C842" />
+          <NotificationBell />
         </div>
       </div>
 
-      <button
-        onClick={() => navigate('/formations')}
-        className="flex items-center gap-1.5 px-5 pb-3 text-xs font-bold"
-        style={{ color: '#F5C842' }}
-      >
-        <TrendingUp size={14} /> BRVM · Nos Formations
-      </button>
       <div style={{ borderBottom: '1px solid #1E1E2A' }} />
 
 
@@ -161,13 +163,23 @@ export default function Analyses() {
           </div>
         )}
 
-        {!loading && !error && analyses.map((a) => (
+        {!loading && !error && analyses.map((a) => {
+          const isNew = readsLoaded && !readIds.has(a.id)
+          return (
           <button
             key={a.id}
             onClick={() => openAnalysis(a)}
-            className="w-full text-left rounded-2xl mb-3 tappable overflow-hidden"
-            style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
+            className={`w-full text-left rounded-2xl mb-3 tappable overflow-hidden relative ${isNew ? 'new-item-glow' : ''}`}
+            style={isNew ? { backgroundColor: '#111118', border: '1.5px solid #F5C842' } : { backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
           >
+            {isNew && (
+              <span
+                className="absolute top-2 left-2 z-10 rounded-full font-extrabold uppercase"
+                style={{ backgroundColor: '#F5C842', color: '#0A0A0F', fontSize: 9, padding: '2px 8px', letterSpacing: 0.4 }}
+              >
+                Nouveau
+              </span>
+            )}
             {a.image_url && <img src={a.image_url} alt="" className="w-full h-32 object-cover" />}
             <div className="p-4">
               <div className="flex items-center justify-between mb-2">
@@ -187,7 +199,8 @@ export default function Analyses() {
               </div>
             </div>
           </button>
-        ))}
+          )
+        })}
       </div>
 
       {selected && (
@@ -210,10 +223,14 @@ export default function Analyses() {
                 <span className="text-buy text-sm font-bold">+{selected.potential_percent}% potentiel</span>
               )}
             </div>
-            <p className="text-textSub text-sm leading-7 whitespace-pre-wrap">
-              {isPro ? selected.content : (selected.content ?? '').slice(0, 160)}
-              {!isPro && (selected.content ?? '').length > 160 && '…'}
-            </p>
+            {isPro ? (
+              <RichText text={selected.content ?? ''} className="text-textSub text-sm leading-7" />
+            ) : (
+              <p className="text-textSub text-sm leading-7 whitespace-pre-wrap">
+                {stripRichText(selected.content ?? '').slice(0, 160)}
+                {(selected.content ?? '').length > 160 && '…'}
+              </p>
+            )}
             {!isPro && (
               <div className="mt-2">
                 <ProTeaser
@@ -222,7 +239,7 @@ export default function Analyses() {
                   description="Lisez l'analyse en entier et le graphique réel de la valeur avec Pro."
                 >
                   <p className="text-textSub text-sm leading-7">
-                    {(selected.content ?? '').slice(160, 400) || 'Suite de l\u2019analyse et données de marché réservées au plan Pro.'}
+                    {stripRichText(selected.content ?? '').slice(160, 400) || 'Suite de l\u2019analyse et données de marché réservées au plan Pro.'}
                   </p>
                 </ProTeaser>
               </div>

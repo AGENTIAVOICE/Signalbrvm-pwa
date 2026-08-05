@@ -130,8 +130,8 @@ function MarcheInner() {
 
         {!loading && !error && (
           <div className="flex items-center gap-1.5 mb-3">
-            <SortButton active={sortMode === 'asc'} onClick={() => setSortMode('asc')} icon={ArrowUp} label="Croissant" />
-            <SortButton active={sortMode === 'desc'} onClick={() => setSortMode('desc')} icon={ArrowDown} label="Décroissant" />
+            <SortButton active={sortMode === 'asc'} onClick={() => setSortMode('asc')} icon={ArrowUp} label="Flop" />
+            <SortButton active={sortMode === 'desc'} onClick={() => setSortMode('desc')} icon={ArrowDown} label="Top" />
             <SortButton active={sortMode === 'name'} onClick={() => setSortMode('name')} icon={ArrowDownAZ} label="Nom" />
           </div>
         )}

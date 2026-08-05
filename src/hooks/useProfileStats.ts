@@ -31,6 +31,36 @@ export function useAnalysisReadCount() {
   return count
 }
 
+// ── Ensemble des identifiants déjà lus (pour badge + mise en évidence des
+// nouveautés) ────────────────────────────────────────────────────────────────
+export function useReadIds(kind: 'alert' | 'analysis') {
+  const table = kind === 'alert' ? 'user_alert_reads' : 'user_analysis_reads'
+  const column = kind === 'alert' ? 'alert_id' : 'analysis_id'
+  const [ids, setIds] = useState<Set<string>>(new Set())
+  const [loaded, setLoaded] = useState(false)
+
+  const refresh = useCallback(async () => {
+    const uid = await currentUserId()
+    if (!uid) {
+      setLoaded(true)
+      return
+    }
+    try {
+      const { data } = await supabase.from(table).select(column).eq('user_id', uid)
+      setIds(new Set((data ?? []).map((r: Record<string, string>) => r[column])))
+    } catch {
+      setIds(new Set())
+    }
+    setLoaded(true)
+  }, [table, column])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  return { ids, loaded, refresh }
+}
+
 export async function markAnalysisRead(analysisId: string) {
   const uid = await currentUserId()
   if (!uid) return
@@ -160,7 +190,11 @@ export function useAlertAction(alertId: string | null) {
     const next = !saved
     setSaved(next)
     try {
-      await supabase.from('user_alert_actions').upsert({ user_id: uid, alert_id: alertId, saved: next }, { onConflict: 'user_id,alert_id' })
+      // Suivre une alerte l'ajoute directement comme position suivie — plus
+      // besoin de l'étape "À valider" séparée.
+      await supabase
+        .from('user_alert_actions')
+        .upsert({ user_id: uid, alert_id: alertId, saved: next, ...(next ? { portfolio_status: 'validated' } : {}) }, { onConflict: 'user_id,alert_id' })
     } catch {
       setSaved(!next)
     }

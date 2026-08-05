@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Crown, Settings, Edit3, X, Check, Clock, Shield, ChevronRight } from 'lucide-react'
+import { Crown, Settings, Edit3, X, Check, Clock, Shield, ChevronRight, Video } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { formatGMTDate } from '../lib/theme'
 import { useProfilInvestisseur } from '../hooks/useProfilInvestisseur'
@@ -97,6 +97,22 @@ export default function Profil() {
             </button>
           )}
         </section>
+
+        {/* Nos Formations */}
+        <button
+          onClick={() => navigate('/formations')}
+          className="w-full rounded-2xl p-4 flex items-center gap-3 text-left tappable"
+          style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
+        >
+          <div className="flex items-center justify-center rounded-xl shrink-0" style={{ width: 38, height: 38, backgroundColor: '#1F1A0A' }}>
+            <Video size={18} color="#F5C842" />
+          </div>
+          <div className="flex-1">
+            <p className="text-white font-bold text-sm">Nos Formations</p>
+            <p className="text-textMuted text-xs">Apprenez à investir sur la BRVM</p>
+          </div>
+          <ChevronRight size={16} color="#4A4A5A" />
+        </button>
 
         {/* Profil investisseur */}
         <div>

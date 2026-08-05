@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase, type DbAnalysis, type DbAlert, type DbRecommendation, type BrvmRow, type DbCompany, type DbHistoryPoint } from '../lib/supabase'
-import { api } from '../lib/api'
 
 // ── Recherche d'entreprises (auto-suggestion admin) ─────────────────────────
 // Cherche par nom ou ticker dans `companies`, complète avec le cours en
@@ -102,8 +101,9 @@ export function useAlerts() {
   const fetchAlerts = useCallback(async (silent = false) => {
     if (!loadedOnce.current && !silent) setLoading(true)
     try {
-      const data = await api.get<DbAlert[]>('/api/alertes')
-      setAlerts(data ?? [])
+      const { data, error: err } = await supabase.from('alerts').select('*').eq('is_active', true).order('created_at', { ascending: false })
+      if (err) throw err
+      setAlerts((data ?? []) as DbAlert[])
       setError(null)
     } catch (err) {
       if (!loadedOnce.current) setError(err instanceof Error ? err.message : 'Erreur réseau')
@@ -138,8 +138,9 @@ export function useAnalyses() {
   const fetchAnalyses = useCallback(async (silent = false) => {
     if (!loadedOnce.current && !silent) setLoading(true)
     try {
-      const data = await api.get<DbAnalysis[]>('/api/analyses')
-      setAnalyses(data ?? [])
+      const { data, error: err } = await supabase.from('analyses').select('*').eq('is_published', true).order('created_at', { ascending: false })
+      if (err) throw err
+      setAnalyses((data ?? []) as DbAnalysis[])
       setError(null)
     } catch (err) {
       if (!loadedOnce.current) setError(err instanceof Error ? err.message : 'Erreur réseau')

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Briefcase, TrendingUp, TrendingDown, ShieldCheck, Zap, CheckCircle2, XCircle, Archive, Wallet, X, ChevronRight } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { Briefcase, TrendingUp, TrendingDown, ShieldCheck, Zap, CheckCircle2, XCircle, Archive, Wallet, X, ChevronRight, ChevronDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useFollowedAlerts, type FollowedAlert } from '../hooks/useFollowedAlerts'
 import { useProfilInvestisseur } from '../hooks/useProfilInvestisseur'
@@ -238,14 +239,13 @@ export default function Portefeuille() {
         </section>
 
         {sim.positions.length > 0 && (
-          <section>
-            <h3 className="text-white font-bold text-sm mb-2">Mes actions simulées ({sim.positions.length})</h3>
+          <CollapsibleSection title="Mes actions simulées" count={sim.positions.length}>
             <div className="flex flex-col gap-2">
               {sim.positions.map((p) => (
                 <SimPositionCard key={p.id} position={p} onOpen={() => navigate(`/portefeuille/${p.ticker}`)} />
               ))}
             </div>
-          </section>
+          </CollapsibleSection>
         )}
           </>
         )}
@@ -329,8 +329,7 @@ export default function Portefeuille() {
           </section>
         )}
 
-        <section>
-          <h3 className="text-white font-bold text-sm mb-2">Positions suivies ({validated.length})</h3>
+        <CollapsibleSection title="Positions suivies" count={validated.length}>
           {validated.length === 0 ? (
             <p className="text-textMuted text-xs">
               Aucune position validée pour le moment.{' '}
@@ -345,7 +344,7 @@ export default function Portefeuille() {
               ))}
             </div>
           )}
-        </section>
+        </CollapsibleSection>
 
         {closed.length > 0 && (
           <section>
@@ -523,6 +522,21 @@ function TradeModal({
         </button>
       </div>
     </div>
+  )
+}
+
+function CollapsibleSection({ title, count, children }: { title: string; count: number; children: ReactNode }) {
+  const [open, setOpen] = useState(true)
+  return (
+    <section>
+      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between mb-2 tappable">
+        <h3 className="text-white font-bold text-sm">
+          {title} ({count})
+        </h3>
+        <ChevronDown size={16} color="#8A8A9A" style={{ transform: open ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 200ms' }} />
+      </button>
+      {open && children}
+    </section>
   )
 }
 

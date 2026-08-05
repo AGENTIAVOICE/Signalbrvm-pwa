@@ -103,3 +103,24 @@ input, button {
     transform: none;
   }
 }
+
+/* Mise en évidence des nouveautés (alerte/analyse jamais ouverte) — revient
+   à l'apparence normale dès que l'élément est ouvert. */
+@keyframes new-item-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(245, 200, 66, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(245, 200, 66, 0);
+  }
+}
+
+.new-item-glow {
+  animation: new-item-pulse 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-item-glow {
+    animation: none;
+  }
+}

@@ -5,7 +5,7 @@ import { useAlerts } from '../hooks/useData'
 import { supabase, type DbAlert } from '../lib/supabase'
 import { RefreshButton } from '../components/RefreshButton'
 import { NotificationBell } from '../components/NotificationBell'
-import { markAlertRead, useAlertAction } from '../hooks/useProfileStats'
+import { markAlertRead, useAlertAction, useReadIds } from '../hooks/useProfileStats'
 import { formatPrice } from '../lib/theme'
 import { useAppStore } from '../lib/store'
 
@@ -74,7 +74,7 @@ function Row({ icon: Icon, label, value, valueColor, last }: { icon: typeof Tag;
   )
 }
 
-function AlertCard({ alert }: { alert: DbAlert }) {
+function AlertCard({ alert, isNew }: { alert: DbAlert; isNew: boolean }) {
   const navigate = useNavigate()
   const content = parseContent(alert.content)
   const { saved, toggleSaved } = useAlertAction(alert.id)
@@ -106,9 +106,17 @@ function AlertCard({ alert }: { alert: DbAlert }) {
   return (
     <div
       onClick={() => navigate(`/alertes/${alert.id}`)}
-      className="rounded-3xl p-4 mb-4 cursor-pointer tappable"
-      style={{ backgroundColor: '#111118', border: '1px solid #23232E' }}
+      className={`rounded-3xl p-4 mb-4 cursor-pointer tappable relative ${isNew ? 'new-item-glow' : ''}`}
+      style={isNew ? { backgroundColor: '#111118', border: '1.5px solid #F5C842' } : { backgroundColor: '#111118', border: '1px solid #23232E' }}
     >
+      {isNew && (
+        <span
+          className="absolute -top-2 left-4 rounded-full font-extrabold uppercase"
+          style={{ backgroundColor: '#F5C842', color: '#0A0A0F', fontSize: 9, padding: '2px 8px', letterSpacing: 0.4 }}
+        >
+          Nouveau
+        </span>
+      )}
       <div className="flex items-center gap-3 mb-3.5">
         <div
           className="flex items-center justify-center rounded-xl shrink-0"
@@ -199,6 +207,7 @@ function AlertCard({ alert }: { alert: DbAlert }) {
 export default function Alertes() {
   const { alerts, loading, error, refetch } = useAlerts()
   const setUnread = useAppStore((s) => s.setUnreadAlertsCount)
+  const { ids: readIds, loaded: readsLoaded } = useReadIds('alert')
 
   const sorted = useMemo(
     () => [...alerts].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
@@ -206,8 +215,10 @@ export default function Alertes() {
   )
 
   useEffect(() => {
-    setUnread(alerts.length)
-  }, [alerts, setUnread])
+    if (!readsLoaded) return
+    const unread = alerts.filter((a) => !readIds.has(a.id)).length
+    setUnread(unread)
+  }, [alerts, readIds, readsLoaded, setUnread])
 
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: '#0A0A0F' }}>
@@ -251,7 +262,7 @@ export default function Alertes() {
           </div>
         )}
 
-        {!loading && !error && sorted.map((a) => <AlertCard key={a.id} alert={a} />)}
+        {!loading && !error && sorted.map((a) => <AlertCard key={a.id} alert={a} isNew={readsLoaded && !readIds.has(a.id)} />)}
       </div>
     </div>
   )

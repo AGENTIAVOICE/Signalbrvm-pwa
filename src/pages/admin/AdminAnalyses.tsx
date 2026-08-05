@@ -4,7 +4,8 @@ import { adminApi, uploadImageReal, linkAnalysisStock } from '../../lib/adminApi
 import { supabase, type DbAnalysis } from '../../lib/supabase'
 import { formatGMTDate, formatPrice } from '../../lib/theme'
 import { CompanySearchInput } from '../../components/admin/CompanySearchInput'
-import { ScreenHeader, EmptyState, ModalSheet, FieldLabel, TextInput, TextArea, Toggle, UploadBox } from '../../components/admin/AdminUI'
+import { RichTextEditor } from '../../components/admin/RichTextEditor'
+import { ScreenHeader, EmptyState, ModalSheet, FieldLabel, TextInput, Toggle, UploadBox } from '../../components/admin/AdminUI'
 
 interface FormState {
   id?: string
@@ -230,7 +231,7 @@ export default function AdminAnalyses() {
 
           <div>
             <FieldLabel>Contenu</FieldLabel>
-            <TextArea value={form.content} onChange={(v) => setForm({ ...form, content: v })} placeholder="Contenu de l'analyse..." />
+            <RichTextEditor value={form.content} onChange={(v) => setForm({ ...form, content: v })} placeholder="Contenu de l'analyse..." />
           </div>
 
           <div className="flex items-center justify-between">

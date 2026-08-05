@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 export interface DbNotification {
   id: string
   alert_id: string | null
+  analysis_id: string | null
   ticker: string | null
   message: string
   is_read: boolean
@@ -31,7 +32,7 @@ export function useNotifications() {
     }
     const { data } = await supabase
       .from('notifications')
-      .select('id, alert_id, ticker, message, is_read, created_at')
+      .select('id, alert_id, analysis_id, ticker, message, is_read, created_at')
       .eq('user_id', uid)
       .order('created_at', { ascending: false })
       .limit(50)

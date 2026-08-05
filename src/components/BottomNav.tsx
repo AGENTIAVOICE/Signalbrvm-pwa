@@ -12,6 +12,7 @@ const TABS = [
 
 export function BottomNav() {
   const unread = useAppStore((s) => s.unreadAlertsCount)
+  const unreadAnalyses = useAppStore((s) => s.unreadAnalysesCount)
 
   return (
     <nav
@@ -46,6 +47,21 @@ export function BottomNav() {
                     }}
                   >
                     {unread > 9 ? '9+' : unread}
+                  </span>
+                )}
+                {to === '/analyses' && unreadAnalyses > 0 && (
+                  <span
+                    className="absolute -top-1 -right-2 flex items-center justify-center rounded-full text-white font-extrabold"
+                    style={{
+                      backgroundColor: '#EF4444',
+                      minWidth: '16px',
+                      height: '16px',
+                      fontSize: '9px',
+                      border: '1.5px solid #0F0F18',
+                      padding: '0 3px',
+                    }}
+                  >
+                    {unreadAnalyses > 9 ? '9+' : unreadAnalyses}
                   </span>
                 )}
               </div>
