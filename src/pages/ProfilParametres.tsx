@@ -4,6 +4,7 @@ import {
   Bell,
   Lock,
   TrendingUp,
+  TrendingDown,
   HelpCircle,
   Star,
   Shield,
@@ -12,9 +13,15 @@ import {
   ChevronLeft,
   Check,
   Mail,
+  Search,
+  Plus,
+  X as XIcon,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { useWatchlist } from '../hooks/useWatchlist'
+import { searchCompanies, type CompanySuggestion } from '../hooks/useData'
+import { formatPrice } from '../lib/theme'
 import { InfoModal } from '../components/InfoModal'
 import { PRIVACY_TITLE, PRIVACY_TEXT, TERMS_TITLE, TERMS_TEXT } from '../lib/legal'
 
@@ -98,14 +105,7 @@ export default function ProfilParametres() {
 
       {modal === 'security' && <SecurityModal onClose={() => setModal(null)} />}
 
-      {modal === 'market_prefs' && (
-        <InfoModal title="Préférences marché" onClose={() => setModal(null)}>
-          <p className="text-textSub text-sm leading-relaxed mb-4">
-            Le réglage fin des préférences de marché (secteurs suivis, seuils d'alerte personnalisés) arrive
-            bientôt. En attendant, toutes les alertes achat/vente publiées par nos analystes vous sont envoyées.
-          </p>
-        </InfoModal>
-      )}
+      {modal === 'market_prefs' && <MarketPrefsModal onClose={() => setModal(null)} />}
 
       {modal === 'help' && (
         <InfoModal title="Centre d'aide" onClose={() => setModal(null)}>
@@ -151,6 +151,133 @@ export default function ProfilParametres() {
         </InfoModal>
       )}
     </div>
+  )
+}
+
+function MarketPrefsModal({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate()
+  const { watched, loading, follow, unfollow, watchedTickers } = useWatchlist()
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<CompanySuggestion[]>([])
+  const [searching, setSearching] = useState(false)
+
+  async function handleSearch(v: string) {
+    setQuery(v)
+    if (!v.trim()) {
+      setResults([])
+      return
+    }
+    setSearching(true)
+    setResults(await searchCompanies(v))
+    setSearching(false)
+  }
+
+  return (
+    <InfoModal title="Préférences marché" onClose={onClose}>
+      <p className="text-textSub text-xs leading-relaxed mb-4">
+        Sélectionnez les valeurs qui vous intéressent pour suivre leur évolution ici, en plus des alertes déjà
+        envoyées par nos analystes.
+      </p>
+
+      <div className="relative mb-3">
+        <Search size={15} color="#4A4A5A" className="absolute left-3 top-1/2 -translate-y-1/2" />
+        <input
+          value={query}
+          onChange={(e) => handleSearch(e.target.value)}
+          placeholder="Rechercher une entreprise (nom ou ticker)..."
+          className="w-full rounded-xl py-2.5 pl-9 pr-3 text-sm text-white outline-none"
+          style={{ backgroundColor: '#1A1A24', border: '1px solid #2A2A3A' }}
+        />
+      </div>
+
+      {query.trim() && (
+        <div className="flex flex-col gap-1.5 mb-4">
+          {searching && <p className="text-textMuted text-xs py-2">Recherche…</p>}
+          {!searching && results.length === 0 && <p className="text-textMuted text-xs py-2">Aucune entreprise trouvée.</p>}
+          {!searching &&
+            results.map((c) => {
+              const isWatched = watchedTickers.has(c.ticker)
+              return (
+                <div key={c.ticker} className="flex items-center justify-between rounded-xl px-3 py-2.5" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
+                  <div className="min-w-0">
+                    <p className="text-white text-xs font-bold truncate">{c.short_name || c.full_name}</p>
+                    <p className="text-textMuted text-[10px]">
+                      {c.ticker} {c.cours != null && `· ${formatPrice(c.cours)}`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => (isWatched ? unfollow(c.ticker) : follow(c.ticker))}
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-bold shrink-0"
+                    style={isWatched ? { backgroundColor: '#052E16', color: '#22C55E' } : { backgroundColor: '#1F1A0A', color: '#F5C842' }}
+                  >
+                    {isWatched ? (
+                      <>
+                        <Check size={12} /> Suivi
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={12} /> Suivre
+                      </>
+                    )}
+                  </button>
+                </div>
+              )
+            })}
+        </div>
+      )}
+
+      <div style={{ borderTop: '1px solid #1E1E2A' }} className="pt-4">
+        <p className="text-white font-bold text-sm mb-2.5">Marchés suivis ({watched.length})</p>
+        {loading ? (
+          <p className="text-textMuted text-xs">Chargement…</p>
+        ) : watched.length === 0 ? (
+          <p className="text-textMuted text-xs">Aucun marché suivi pour l'instant — utilisez la recherche ci-dessus.</p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {watched.map((w) => {
+              const up = (w.variation_pct ?? 0) >= 0
+              return (
+                <div
+                  key={w.ticker}
+                  className="flex items-center justify-between rounded-xl px-3 py-2.5 tappable cursor-pointer"
+                  style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
+                  onClick={() => {
+                    onClose()
+                    navigate(`/marche/${w.ticker}`)
+                  }}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {up ? <TrendingUp size={13} color="#22C55E" className="shrink-0" /> : <TrendingDown size={13} color="#EF4444" className="shrink-0" />}
+                    <div className="min-w-0">
+                      <p className="text-white text-xs font-bold truncate">{w.full_name}</p>
+                      <p className="text-textMuted text-[10px]">
+                        {w.cours != null ? formatPrice(w.cours) : '—'}{' '}
+                        {w.variation_pct != null && (
+                          <span style={{ color: up ? '#22C55E' : '#EF4444' }} className="font-bold">
+                            {up ? '+' : ''}
+                            {w.variation_pct.toFixed(2)}%
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      unfollow(w.ticker)
+                    }}
+                    className="shrink-0 p-1"
+                    aria-label="Ne plus suivre"
+                  >
+                    <XIcon size={14} color="#4A4A5A" />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </InfoModal>
   )
 }
 
