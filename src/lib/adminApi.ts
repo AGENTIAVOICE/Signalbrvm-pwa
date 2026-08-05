@@ -77,6 +77,47 @@ export async function linkAlertStock(
   }
 }
 
+// Même souci que pour les alertes : le backend externe ignore le
+// ticker/secteur d'une analyse. On les persiste directement via Supabase.
+const LINK_ANALYSIS_URL = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/link-analysis-stock`
+export async function linkAnalysisStock(analysisId: string, fields: { ticker: string | null; sector: string | null }): Promise<void> {
+  const token = getAdminToken()
+  if (!token) return
+  try {
+    const res = await fetch(LINK_ANALYSIS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ analysis_id: analysisId, ...fields }),
+    })
+    if (!res.ok) console.error('linkAnalysisStock: échec', res.status, await res.text().catch(() => ''))
+  } catch (err) {
+    console.error('linkAnalysisStock: erreur réseau', err)
+  }
+}
+
+// Le backend externe ne réalise jamais le vrai téléversement d'image (il
+// renvoie une URL plausible sans rien enregistrer) — cette fonction fait le
+// vrai upload dans le stockage Supabase.
+const UPLOAD_IMAGE_URL = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/upload-admin-image`
+export async function uploadImageReal(file: File, folder = 'analyses'): Promise<{ url: string }> {
+  const token = getAdminToken()
+  if (!token) throw new Error('Non authentifié')
+  const dataBase64: string = await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve((reader.result as string).split(',')[1])
+    reader.onerror = () => reject(new Error('Lecture du fichier impossible'))
+    reader.readAsDataURL(file)
+  })
+  const res = await fetch(UPLOAD_IMAGE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ filename: file.name, contentType: file.type || 'image/jpeg', dataBase64, folder }),
+  })
+  const json: { data?: { url: string }; error?: string } = await res.json().catch(() => ({}))
+  if (!res.ok || json.error) throw new Error(json.error ?? `Erreur ${res.status}`)
+  return json.data as { url: string }
+}
+
 export async function adminLogin(email: string, password: string): Promise<{ token: string; email: string }> {
   const res = await fetch(`${baseUrl}/api/admin/login`, {
     method: 'POST',

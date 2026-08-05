@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { FileText, Plus, Image as ImageIcon, Trash2, Edit3, EyeOff, Eye } from 'lucide-react'
-import { adminApi, uploadImage } from '../../lib/adminApi'
-import type { DbAnalysis } from '../../lib/supabase'
-import { formatGMTDate } from '../../lib/theme'
+import { FileText, Plus, Image as ImageIcon, Trash2, Edit3, EyeOff, Eye, Building2 } from 'lucide-react'
+import { adminApi, uploadImageReal, linkAnalysisStock } from '../../lib/adminApi'
+import { supabase, type DbAnalysis } from '../../lib/supabase'
+import { formatGMTDate, formatPrice } from '../../lib/theme'
+import { CompanySearchInput } from '../../components/admin/CompanySearchInput'
 import { ScreenHeader, EmptyState, ModalSheet, FieldLabel, TextInput, TextArea, Toggle, UploadBox } from '../../components/admin/AdminUI'
 
 interface FormState {
@@ -11,8 +12,11 @@ interface FormState {
   content: string
   image_url: string | null
   is_published: boolean
+  ticker: string
+  sector: string
+  current_price: number | null
 }
-const EMPTY: FormState = { title: '', content: '', image_url: null, is_published: false }
+const EMPTY: FormState = { title: '', content: '', image_url: null, is_published: false, ticker: '', sector: '', current_price: null }
 
 export default function AdminAnalyses() {
   const [items, setItems] = useState<DbAnalysis[]>([])
@@ -21,6 +25,7 @@ export default function AdminAnalyses() {
   const [form, setForm] = useState<FormState | null>(null)
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [companyQuery, setCompanyQuery] = useState('')
   const loadedOnce = useRef(false)
 
   async function load(silent = false) {
@@ -39,15 +44,29 @@ export default function AdminAnalyses() {
     load()
   }, [])
 
-  function openEdit(a: DbAnalysis) {
-    setForm({ id: a.id, title: a.title, content: a.content ?? '', image_url: a.image_url, is_published: a.is_published })
+  async function openEdit(a: DbAnalysis) {
+    let currentPrice: number | null = null
+    if (a.ticker) {
+      const { data } = await supabase.from('brvm_cours').select('cours').eq('ticker', a.ticker).maybeSingle()
+      currentPrice = data?.cours ?? null
+    }
+    setForm({
+      id: a.id,
+      title: a.title,
+      content: a.content ?? '',
+      image_url: a.image_url,
+      is_published: a.is_published,
+      ticker: a.ticker ?? '',
+      sector: a.sector ?? '',
+      current_price: currentPrice,
+    })
   }
 
   async function handleImage(file: File) {
     if (!form) return
     setUploading(true)
     try {
-      const { url } = await uploadImage(file)
+      const { url } = await uploadImageReal(file, 'analyses')
       setForm({ ...form, image_url: url })
     } catch (err) {
       alert(err instanceof Error ? err.message : "Erreur lors de l'upload")
@@ -63,10 +82,24 @@ export default function AdminAnalyses() {
       content: form.content || undefined,
       image_url: form.image_url,
       is_published: form.is_published,
+      stock_name: form.ticker ? form.title.trim() : undefined,
     }
     try {
-      if (form.id) await adminApi.patch(`/analyses/${form.id}`, body)
-      else await adminApi.post('/analyses', body)
+      let analysisId = form.id
+      if (analysisId) {
+        await adminApi.patch(`/analyses/${analysisId}`, body)
+      } else {
+        const created = await adminApi.post<{ id: string }>('/analyses', body)
+        analysisId = created?.id
+      }
+      const fresh = await adminApi.get<DbAnalysis[]>('/analyses')
+      setItems(fresh)
+      if (!analysisId) {
+        analysisId = fresh
+          .filter((a) => a.title === body.title)
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]?.id
+      }
+      if (analysisId) await linkAnalysisStock(analysisId, { ticker: form.ticker || null, sector: form.sector || null })
       setForm(null)
       load(true)
     } catch (err) {
@@ -106,7 +139,10 @@ export default function AdminAnalyses() {
         title="Analyses"
         action={
           <button
-            onClick={() => setForm({ ...EMPTY })}
+            onClick={() => {
+              setCompanyQuery('')
+              setForm({ ...EMPTY })
+            }}
             className="flex items-center justify-center rounded-full"
             style={{ width: 38, height: 38, backgroundColor: '#F5C842' }}
           >
@@ -152,6 +188,44 @@ export default function AdminAnalyses() {
           <div>
             <FieldLabel required>Titre</FieldLabel>
             <TextInput value={form.title} onChange={(v) => setForm({ ...form, title: v })} placeholder="Titre de l'analyse" />
+          </div>
+
+          <div>
+            <FieldLabel>Entreprise</FieldLabel>
+            <CompanySearchInput
+              value={companyQuery}
+              onChange={setCompanyQuery}
+              onSelect={(c) => {
+                setCompanyQuery(c.short_name || c.full_name)
+                setForm({
+                  ...form,
+                  ticker: c.ticker,
+                  sector: c.sector ?? '',
+                  current_price: c.cours,
+                })
+              }}
+            />
+            {form.ticker && (
+              <div
+                className="mt-2 flex items-center gap-2.5 rounded-xl px-3 py-2.5"
+                style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
+              >
+                <div
+                  className="flex items-center justify-center rounded-lg shrink-0"
+                  style={{ width: 30, height: 30, backgroundColor: '#1A1A24', border: '1px solid #2A2A3A' }}
+                >
+                  <Building2 size={14} color="#F5C842" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-xs font-bold">
+                    {form.ticker} {form.sector && `· ${form.sector}`}
+                  </p>
+                </div>
+                {form.current_price != null && (
+                  <span className="text-primary text-xs font-bold shrink-0">Cours actuel : {formatPrice(form.current_price)}</span>
+                )}
+              </div>
+            )}
           </div>
 
           <div>

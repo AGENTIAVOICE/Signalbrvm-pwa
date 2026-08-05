@@ -28,6 +28,7 @@ export interface DbAnalysis {
   id: string
   title: string
   stock_name: string | null
+  ticker: string | null
   sector: string | null
   potential_percent: number | null
   risk_level: RiskLevel | null
