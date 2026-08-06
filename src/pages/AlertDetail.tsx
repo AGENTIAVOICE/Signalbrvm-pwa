@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Bell, Building2, Lightbulb, Star, Check } from 'lucide-react'
+import { ArrowLeft, Bell, Building2, Lightbulb, Star, Check, Lock } from 'lucide-react'
 import { supabase, type DbAlert, type DbCompany } from '../lib/supabase'
 import { useStockHistory, computeRSI } from '../hooks/useData'
 import { formatPrice } from '../lib/theme'
@@ -114,6 +114,22 @@ function findBestCompanyMatch(stockName: string, companies: { ticker: string; fu
     }
   }
   return bestScore >= 0.5 ? best : null
+}
+
+function LockedInline({ label = 'Pro' }: { label?: string }) {
+  const navigate = useNavigate()
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        navigate('/abonnement')
+      }}
+      className="inline-flex items-center gap-1 rounded-md font-extrabold"
+      style={{ backgroundColor: '#1F1A0A', color: '#F5C842', border: '1px solid #F5C842', fontSize: 10, padding: '2px 7px' }}
+    >
+      <Lock size={9} /> {label}
+    </button>
+  )
 }
 
 export default function AlertDetail() {
@@ -259,17 +275,21 @@ export default function AlertDetail() {
                 {company?.full_name && <p className="text-textMuted text-[10px]">{company.full_name}</p>}
               </div>
             </div>
-            <span
-              className="rounded-lg px-2 py-1 text-[10px] font-extrabold"
-              style={{ backgroundColor: accentBg, color: accent, border: `1px solid ${accentBorder}` }}
-            >
-              {isBuy ? "OPPORTUNITÉ D'ACHAT" : 'SIGNAL DE VENTE'}
-            </span>
+            {isPro ? (
+              <span
+                className="rounded-lg px-2 py-1 text-[10px] font-extrabold"
+                style={{ backgroundColor: accentBg, color: accent, border: `1px solid ${accentBorder}` }}
+              >
+                {isBuy ? "OPPORTUNITÉ D'ACHAT" : 'SIGNAL DE VENTE'}
+              </span>
+            ) : (
+              <LockedInline label="Signal verrouillé" />
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2 pt-2.5" style={{ borderTop: '1px solid #2A2A3A' }}>
-            <Stat label="Type d'ordre" value={isBuy ? 'ACHAT' : 'VENTE'} color={accent} />
-            {alert.price_target != null && <Stat label="Cours limite" value={formatPrice(alert.price_target)} />}
+            <Stat label="Type d'ordre" value={isPro ? (isBuy ? 'ACHAT' : 'VENTE') : <LockedInline />} color={isPro ? accent : undefined} />
+            {alert.price_target != null && <Stat label="Cours limite" value={isPro ? formatPrice(alert.price_target) : <LockedInline />} />}
             {alert.horizon && <Stat label="Horizon" value={alert.horizon === 'long' ? 'Long terme' : 'Court terme'} />}
             {(() => {
               const p1 = pct(alert.objectif_1, alert.price_target)
@@ -282,24 +302,24 @@ export default function AlertDetail() {
           </div>
         </div>
 
-        {isPro ? (
-          <>
-            <div className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
-              <p className="text-textMuted text-[10px] font-bold uppercase tracking-wide mb-1">Cours actuel (réel)</p>
-              {currentPrice != null ? (
-                <div className="flex items-baseline gap-2 mb-3">
-                  <span className="text-white font-extrabold text-xl">{formatPrice(currentPrice)}</span>
-                  {dayChange != null && (
-                    <span className="text-xs font-extrabold" style={{ color: dayChange >= 0 ? '#22C55E' : '#EF4444' }}>
-                      {dayChange >= 0 ? '+' : ''}
-                      {dayChange.toFixed(2)}%
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <p className="text-textSub text-xs mb-3">Cours indisponible pour le moment.</p>
+        <div className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
+          <p className="text-textMuted text-[10px] font-bold uppercase tracking-wide mb-1">Cours actuel (réel)</p>
+          {currentPrice != null ? (
+            <div className="flex items-baseline gap-2 mb-3">
+              <span className="text-white font-extrabold text-xl">{formatPrice(currentPrice)}</span>
+              {dayChange != null && (
+                <span className="text-xs font-extrabold" style={{ color: dayChange >= 0 ? '#22C55E' : '#EF4444' }}>
+                  {dayChange >= 0 ? '+' : ''}
+                  {dayChange.toFixed(2)}%
+                </span>
               )}
+            </div>
+          ) : (
+            <p className="text-textSub text-xs mb-3">Cours indisponible pour le moment.</p>
+          )}
 
+          {isPro ? (
+            <>
               {closes.length > 1 ? (
                 <>
                   <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: 80 }}>
@@ -328,60 +348,75 @@ export default function AlertDetail() {
                   </div>
                 </div>
               )}
-            </div>
+            </>
+          ) : (
+            <ProTeaser compact title="Graphique & RSI en temps réel" description="Passez à Pro pour voir l'historique de prix et le RSI réel de chaque valeur.">
+              <div style={{ height: 110 }} />
+            </ProTeaser>
+          )}
+        </div>
 
-            <div className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
-              <p className="text-textMuted text-[10px] font-bold uppercase tracking-wide mb-2.5">Détails de l'alerte</p>
-              <DetailRow label="Actif" value={alert.stock_name} />
-              {sector && <DetailRow label="Secteur" value={sector} />}
-              {currentPrice != null && <DetailRow label="Cours actuel" value={formatPrice(currentPrice)} />}
-              {alert.price_target != null && <DetailRow label={`Cours limite (${isBuy ? 'achat' : 'vente'})`} value={formatPrice(alert.price_target)} />}
-              {alert.objectif_1 != null && (
-                <DetailRow label="Objectif 1" value={`${formatPrice(alert.objectif_1)}${pct(alert.objectif_1, currentPrice) ? ` (${pct(alert.objectif_1, currentPrice)})` : ''}`} color="#22C55E" />
-              )}
-              {alert.objectif_2 != null && (
-                <DetailRow label="Objectif 2" value={`${formatPrice(alert.objectif_2)}${pct(alert.objectif_2, currentPrice) ? ` (${pct(alert.objectif_2, currentPrice)})` : ''}`} color="#22C55E" />
-              )}
-              {alert.stop_loss != null && (
-                <DetailRow label="Stop loss" value={`${formatPrice(alert.stop_loss)}${pct(alert.stop_loss, currentPrice) ? ` (${pct(alert.stop_loss, currentPrice)})` : ''}`} color="#EF4444" />
-              )}
-              {(() => {
-                const p1 = pct(alert.objectif_1, alert.price_target)
-                const p2 = pct(alert.objectif_2, alert.price_target)
-                if (!p1 && !p2) return null
-                const nums = [p1, p2].filter(Boolean).map((s) => parseFloat(s as string))
-                const avg = nums.reduce((a, b) => a + b, 0) / nums.length
-                return <DetailRow label="Potentiel de gain moyen" value={`${avg > 0 ? '+' : ''}${avg.toFixed(1)}%`} color="#22C55E" />
-              })()}
-              {horizonLabel && <DetailRow label="Horizon recommandé" value={horizonLabel} />}
-              {riskLevel && <DetailRow label="Niveau de risque" value={riskLevel} color="#F5C842" last />}
-            </div>
+        <div className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
+          <p className="text-textMuted text-[10px] font-bold uppercase tracking-wide mb-2.5">Détails de l'alerte</p>
+          <DetailRow label="Actif" value={alert.stock_name} />
+          {sector && <DetailRow label="Secteur" value={sector} />}
+          {currentPrice != null && <DetailRow label="Cours actuel" value={formatPrice(currentPrice)} />}
+          {alert.price_target != null && (
+            <DetailRow label={`Cours limite (${isBuy ? 'achat' : 'vente'})`} value={isPro ? formatPrice(alert.price_target) : <LockedInline />} />
+          )}
+          {alert.objectif_1 != null && (
+            <DetailRow
+              label="Objectif 1"
+              value={isPro ? `${formatPrice(alert.objectif_1)}${pct(alert.objectif_1, currentPrice) ? ` (${pct(alert.objectif_1, currentPrice)})` : ''}` : <LockedInline />}
+              color={isPro ? '#22C55E' : undefined}
+            />
+          )}
+          {alert.objectif_2 != null && (
+            <DetailRow
+              label="Objectif 2"
+              value={isPro ? `${formatPrice(alert.objectif_2)}${pct(alert.objectif_2, currentPrice) ? ` (${pct(alert.objectif_2, currentPrice)})` : ''}` : <LockedInline />}
+              color={isPro ? '#22C55E' : undefined}
+            />
+          )}
+          {alert.stop_loss != null && (
+            <DetailRow
+              label="Stop loss"
+              value={isPro ? `${formatPrice(alert.stop_loss)}${pct(alert.stop_loss, currentPrice) ? ` (${pct(alert.stop_loss, currentPrice)})` : ''}` : <LockedInline />}
+              color={isPro ? '#EF4444' : undefined}
+            />
+          )}
+          {(() => {
+            const p1 = pct(alert.objectif_1, alert.price_target)
+            const p2 = pct(alert.objectif_2, alert.price_target)
+            if (!p1 && !p2) return null
+            const nums = [p1, p2].filter(Boolean).map((s) => parseFloat(s as string))
+            const avg = nums.reduce((a, b) => a + b, 0) / nums.length
+            return <DetailRow label="Potentiel de gain moyen" value={`${avg > 0 ? '+' : ''}${avg.toFixed(1)}%`} color="#22C55E" />
+          })()}
+          {horizonLabel && <DetailRow label="Horizon recommandé" value={horizonLabel} />}
+          {riskLevel && <DetailRow label="Niveau de risque" value={riskLevel} color="#F5C842" last />}
+        </div>
 
-            {(analysis || adminNote) && (
-              <div className="rounded-2xl p-3 flex gap-2.5" style={{ backgroundColor: accentBg, border: `1px solid ${accentBorder}` }}>
-                <Lightbulb size={16} color={accent} className="mt-0.5 shrink-0" />
-                <div className="flex flex-col gap-1.5">
-                  {analysis && <p className="text-textSub text-xs leading-relaxed">{analysis}</p>}
-                  {adminNote && (
-                    <p className="text-textSub text-xs leading-relaxed italic">
-                      {analysis ? 'Note de l\u2019admin : ' : ''}
-                      {adminNote}
-                    </p>
-                  )}
-                </div>
+        {isPro ? (
+          (analysis || adminNote) && (
+            <div className="rounded-2xl p-3 flex gap-2.5" style={{ backgroundColor: accentBg, border: `1px solid ${accentBorder}` }}>
+              <Lightbulb size={16} color={accent} className="mt-0.5 shrink-0" />
+              <div className="flex flex-col gap-1.5">
+                {analysis && <p className="text-textSub text-xs leading-relaxed">{analysis}</p>}
+                {adminNote && (
+                  <p className="text-textSub text-xs leading-relaxed italic">
+                    {analysis ? 'Note de l\u2019admin : ' : ''}
+                    {adminNote}
+                  </p>
+                )}
               </div>
-            )}
-          </>
+            </div>
+          )
         ) : (
-          <ProTeaser
-            title="Graphique, RSI et analyse complète"
-            description="Passez à Pro pour voir le cours en temps réel, le graphique, les objectifs, le stop loss et l'analyse détaillée de chaque alerte."
-          >
-            <div className="rounded-2xl p-4 mb-3" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A', height: 220 }} />
-            <div className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A', height: 180 }} />
+          <ProTeaser compact title="Analyse détaillée" description="Passez à Pro pour lire l'analyse complète de cette alerte.">
+            <div style={{ height: 60 }} />
           </ProTeaser>
         )}
-
 
         <div className="flex gap-2">
           <button
@@ -412,7 +447,7 @@ export default function AlertDetail() {
   )
 }
 
-function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
+function Stat({ label, value, color }: { label: string; value: ReactNode; color?: string }) {
   return (
     <div>
       <p className="text-textMuted text-[9px] uppercase tracking-wide mb-0.5">{label}</p>
@@ -423,7 +458,7 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   )
 }
 
-function DetailRow({ label, value, color, last }: { label: string; value: string; color?: string; last?: boolean }) {
+function DetailRow({ label, value, color, last }: { label: string; value: ReactNode; color?: string; last?: boolean }) {
   return (
     <div className="flex items-center justify-between py-1.5" style={!last ? { borderBottom: '1px solid #1E1E2A' } : undefined}>
       <span className="text-textSub text-xs">{label}</span>

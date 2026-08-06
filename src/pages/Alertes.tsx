@@ -1,13 +1,33 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, Calendar, Tag, Target, ShieldOff, Star, Check, Building2, ChevronRight } from 'lucide-react'
+import { Bell, Calendar, Tag, Target, ShieldOff, Star, Check, Building2, ChevronRight, Lock } from 'lucide-react'
 import { useAlerts } from '../hooks/useData'
 import { supabase, type DbAlert } from '../lib/supabase'
 import { RefreshButton } from '../components/RefreshButton'
 import { NotificationBell } from '../components/NotificationBell'
 import { markAlertRead, useAlertAction, useReadIds } from '../hooks/useProfileStats'
+import { useAuth } from '../context/AuthContext'
 import { formatPrice } from '../lib/theme'
 import { useAppStore } from '../lib/store'
+
+// Petit indicateur "verrouillé Pro" — remplace une valeur sensible (type
+// d'ordre, cours limite, objectifs) sans jamais laisser deviner sa couleur
+// ou sa valeur réelle, contrairement à un simple flou.
+function LockedValue({ compact }: { compact?: boolean }) {
+  const navigate = useNavigate()
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        navigate('/abonnement')
+      }}
+      className="inline-flex items-center gap-1 rounded-md font-extrabold"
+      style={{ backgroundColor: '#1F1A0A', color: '#F5C842', border: '1px solid #F5C842', fontSize: compact ? 9.5 : 10.5, padding: compact ? '2px 6px' : '3px 8px' }}
+    >
+      <Lock size={compact ? 9 : 10} /> Pro
+    </button>
+  )
+}
 
 function parseContent(raw: string | null) {
   if (!raw) return { message: '', priceMax: null as number | null, gainPotential: null as string | null }
@@ -61,7 +81,7 @@ function useCardMarketSnapshot(ticker: string | null) {
   return { closes, cours }
 }
 
-function Row({ icon: Icon, label, value, valueColor, last }: { icon: typeof Tag; label: string; value: string; valueColor?: string; last?: boolean }) {
+function Row({ icon: Icon, label, value, valueColor, last }: { icon: typeof Tag; label: string; value: ReactNode; valueColor?: string; last?: boolean }) {
   return (
     <div className="flex items-center justify-between py-2" style={!last ? { borderBottom: undefined } : undefined}>
       <span className="flex items-center gap-2 text-[11.5px] text-textSub">
@@ -76,6 +96,7 @@ function Row({ icon: Icon, label, value, valueColor, last }: { icon: typeof Tag;
 
 function AlertCard({ alert, isNew }: { alert: DbAlert; isNew: boolean }) {
   const navigate = useNavigate()
+  const { isPro } = useAuth()
   const content = parseContent(alert.content)
   const { saved, toggleSaved } = useAlertAction(alert.id)
   const { closes, cours } = useCardMarketSnapshot(alert.ticker)
@@ -130,12 +151,25 @@ function AlertCard({ alert, isNew }: { alert: DbAlert; isNew: boolean }) {
             <Calendar size={11} /> {formatAlertDateTime(new Date(alert.created_at))} · {alert.horizon === 'long' ? 'Long terme' : 'Court terme'}
           </span>
         </div>
-        <span
-          className="shrink-0 rounded-[9px] font-extrabold"
-          style={{ backgroundColor: accent, color: accentDark, fontSize: 11.5, padding: '6px 12px', letterSpacing: 0.3 }}
-        >
-          {signal}
-        </span>
+        {isPro ? (
+          <span
+            className="shrink-0 rounded-[9px] font-extrabold"
+            style={{ backgroundColor: accent, color: accentDark, fontSize: 11.5, padding: '6px 12px', letterSpacing: 0.3 }}
+          >
+            {signal}
+          </span>
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate('/abonnement')
+            }}
+            className="shrink-0 flex items-center gap-1 rounded-[9px] font-extrabold"
+            style={{ backgroundColor: '#1F1A0A', color: '#F5C842', border: '1px solid #F5C842', fontSize: 10.5, padding: '6px 10px' }}
+          >
+            <Lock size={11} /> Signal verrouillé
+          </button>
+        )}
         <ChevronRight size={16} color="#4A4A5A" className="shrink-0" />
       </div>
 
@@ -169,16 +203,22 @@ function AlertCard({ alert, isNew }: { alert: DbAlert; isNew: boolean }) {
       )}
 
       <div className="flex flex-col gap-0.5 mb-3.5">
-        {alert.price_target != null && <Row icon={Tag} label="Cours limite" value={formatPrice(alert.price_target)} />}
+        {alert.price_target != null && <Row icon={Tag} label="Cours limite" value={isPro ? formatPrice(alert.price_target) : <LockedValue compact />} />}
         {(alert.objectif_1 != null || alert.objectif_2 != null) && (
           <Row
             icon={Target}
             label="Objectifs"
-            value={[alert.objectif_1, alert.objectif_2].filter((v) => v != null).map((v) => formatPrice(v as number)).join(' · ')}
-            valueColor={accent}
+            value={
+              isPro
+                ? [alert.objectif_1, alert.objectif_2].filter((v) => v != null).map((v) => formatPrice(v as number)).join(' · ')
+                : <LockedValue compact />
+            }
+            valueColor={isPro ? accent : undefined}
           />
         )}
-        {alert.stop_loss != null && <Row icon={ShieldOff} label="Stop loss" value={formatPrice(alert.stop_loss)} valueColor="#EF4444" last />}
+        {alert.stop_loss != null && (
+          <Row icon={ShieldOff} label="Stop loss" value={isPro ? formatPrice(alert.stop_loss) : <LockedValue compact />} valueColor={isPro ? '#EF4444' : undefined} last />
+        )}
       </div>
 
       <button
