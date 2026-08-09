@@ -37,9 +37,25 @@ interface Metrics {
   rangeHighPct?: number | null
 }
 
+const CRON_SECRET = 'hVGHQiKJJOZfST1icl1kKvnqp0EPbNDpuvJ2COP8QX4'
+const ALLOWED_ORIGIN = 'https://signalbrvm.com'
+
 export default async (req: Request, _context: Context) => {
   if (req.method !== 'POST') {
     return jsonResponse(405, { error: { message: 'Méthode non autorisée' } })
+  }
+
+  // Cette route fait un vrai appel IA payant à chaque requête. On l'autorise
+  // pour : (1) notre propre tâche planifiée (secret partagé, jamais exposé
+  // côté client), ou (2) une requête venant réellement du navigateur sur
+  // notre domaine (repli en direct quand une valeur n'a pas encore
+  // d'analyse en cache). Ça bloque les scripts d'appel direct externes sans
+  // empêcher l'usage normal de l'appli.
+  const isCron = req.headers.get('x-cron-secret') === CRON_SECRET
+  const origin = req.headers.get('origin') ?? req.headers.get('referer') ?? ''
+  const isFromApp = origin.startsWith(ALLOWED_ORIGIN)
+  if (!isCron && !isFromApp) {
+    return jsonResponse(403, { error: { message: 'Origine non autorisée', code: 'FORBIDDEN_ORIGIN' } })
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY
