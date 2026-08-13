@@ -22,6 +22,14 @@ interface OneSignalSdk {
 
 const ONESIGNAL_APP_ID = '1c69d75a-5af4-43f8-9b75-40179316f764'
 
+// État brut de la permission navigateur (indépendant de OneSignal) — permet
+// de savoir s'il faut encore proposer la bannière ("default") ou si
+// l'utilisateur a déjà tranché ("granted"/"denied").
+export function getBrowserNotificationPermission(): NotificationPermission | 'unsupported' {
+  if (typeof Notification === 'undefined') return 'unsupported'
+  return Notification.permission
+}
+
 let initialized = false
 
 export function initOneSignal() {
@@ -38,27 +46,15 @@ export function initOneSignal() {
 }
 
 // Associe l'abonnement push à l'identité réelle de l'utilisateur connecté,
-// et l'active automatiquement (le client reste libre de le désactiver
-// ensuite dans les réglages) — la demande de permission du navigateur
-// s'affiche donc dès l'ouverture de l'app, sans action manuelle requise.
-// Ne s'exécute qu'une fois par session pour ne pas re-solliciter le
-// navigateur à chaque changement de page.
-let autoOptInDone = false
-
+// pour pouvoir cibler des personnes précises plus tard si besoin. NE
+// déclenche PAS la demande de permission ici : les navigateurs bloquent
+// silencieusement toute demande de notification qui ne part pas d'un vrai
+// geste utilisateur (clic/tap) — voir NotificationPrompt.tsx pour ça.
 export function identifyOneSignalUser(userId: string) {
   window.OneSignalDeferred = window.OneSignalDeferred || []
   window.OneSignalDeferred.push(async (OneSignal) => {
     try {
       await OneSignal.login(userId)
-      if (!autoOptInDone) {
-        autoOptInDone = true
-        // Ne redemande pas si l'utilisateur a déjà explicitement refusé —
-        // le navigateur lui-même bloque alors silencieusement toute
-        // nouvelle tentative, donc pas besoin de vérifier nous-mêmes.
-        if (!OneSignal.User.PushSubscription.optedIn) {
-          await OneSignal.User.PushSubscription.optIn()
-        }
-      }
     } catch {
       // best-effort — ne doit jamais bloquer le reste de l'app
     }
