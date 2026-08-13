@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Bell,
@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useWatchlist } from '../hooks/useWatchlist'
+import { getOneSignalSubscriptionState, setOneSignalSubscription } from '../lib/onesignal'
 import { searchCompanies, type CompanySuggestion } from '../hooks/useData'
 import { formatPrice } from '../lib/theme'
 import { InfoModal } from '../components/InfoModal'
@@ -30,7 +31,21 @@ type ModalKind = 'security' | 'market_prefs' | 'help' | 'rate' | 'privacy' | 'te
 export default function ProfilParametres() {
   const navigate = useNavigate()
   const { signOut } = useAuth()
-  const [notifications, setNotifications] = useState(true)
+  const [notifications, setNotifications] = useState(false)
+  const [notifLoading, setNotifLoading] = useState(true)
+
+  useEffect(() => {
+    getOneSignalSubscriptionState().then((optedIn) => {
+      setNotifications(optedIn)
+      setNotifLoading(false)
+    })
+  }, [])
+
+  async function toggleNotifications() {
+    const next = !notifications
+    setNotifications(next)
+    await setOneSignalSubscription(next)
+  }
   const [modal, setModal] = useState<ModalKind>(null)
 
   async function handleLogout() {
@@ -63,8 +78,9 @@ export default function ProfilParametres() {
                 <IconBox icon={Bell} color="#F5C842" /> Notifications
               </span>
               <button
-                onClick={() => setNotifications((v) => !v)}
-                className="relative rounded-full transition-colors"
+                onClick={toggleNotifications}
+                disabled={notifLoading}
+                className="relative rounded-full transition-colors disabled:opacity-50"
                 style={{ width: 44, height: 26, backgroundColor: notifications ? '#D4A82E' : '#2A2A3A' }}
               >
                 <span

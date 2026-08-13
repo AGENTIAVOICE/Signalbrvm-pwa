@@ -27,6 +27,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
+        // Fusionne le service worker push de OneSignal dans notre propre
+        // service worker généré (au lieu d'en enregistrer un second, ce qui
+        // provoquerait des conflits de portée).
+        importScripts: ['https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,

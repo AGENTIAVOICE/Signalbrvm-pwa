@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { getMyPlan } from '../lib/api'
+import { identifyOneSignalUser } from '../lib/onesignal'
 
 export type UserStatus = 'pending' | 'approved' | 'rejected' | 'admin' | 'unknown'
 
@@ -66,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session)
       if (data.session?.user.email) await loadProfile(data.session.user.email)
+      if (data.session?.user.id) identifyOneSignalUser(data.session.user.id)
       await refreshPlan()
       hasLoadedOnce.current = true
       setLoading(false)
@@ -75,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(newSession)
       if (newSession?.user.email) {
         await loadProfile(newSession.user.email)
+        if (newSession.user.id) identifyOneSignalUser(newSession.user.id)
         await refreshPlan()
       } else {
         setProfile(null)
