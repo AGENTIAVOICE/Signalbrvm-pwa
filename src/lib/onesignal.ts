@@ -38,12 +38,27 @@ export function initOneSignal() {
 }
 
 // Associe l'abonnement push à l'identité réelle de l'utilisateur connecté,
-// pour pouvoir cibler des personnes précises plus tard si besoin.
+// et l'active automatiquement (le client reste libre de le désactiver
+// ensuite dans les réglages) — la demande de permission du navigateur
+// s'affiche donc dès l'ouverture de l'app, sans action manuelle requise.
+// Ne s'exécute qu'une fois par session pour ne pas re-solliciter le
+// navigateur à chaque changement de page.
+let autoOptInDone = false
+
 export function identifyOneSignalUser(userId: string) {
   window.OneSignalDeferred = window.OneSignalDeferred || []
   window.OneSignalDeferred.push(async (OneSignal) => {
     try {
       await OneSignal.login(userId)
+      if (!autoOptInDone) {
+        autoOptInDone = true
+        // Ne redemande pas si l'utilisateur a déjà explicitement refusé —
+        // le navigateur lui-même bloque alors silencieusement toute
+        // nouvelle tentative, donc pas besoin de vérifier nous-mêmes.
+        if (!OneSignal.User.PushSubscription.optedIn) {
+          await OneSignal.User.PushSubscription.optIn()
+        }
+      }
     } catch {
       // best-effort — ne doit jamais bloquer le reste de l'app
     }
