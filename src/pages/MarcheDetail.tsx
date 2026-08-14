@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Building2, Sparkles, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Building2, Sparkles, AlertTriangle, X } from 'lucide-react'
 import { supabase, type DbCompany } from '../lib/supabase'
 import { useStockHistory, computeRSI } from '../hooks/useData'
 import { getMarketAnalysis } from '../lib/api'
 import { formatPrice, formatRelativeTime } from '../lib/theme'
+import { useAuth } from '../context/AuthContext'
+import { useProfilInvestisseur } from '../hooks/useProfilInvestisseur'
+import { usePortfolioSimulator } from '../hooks/usePortfolioSimulator'
+import { ProTeaser } from '../components/ProTeaser'
 
 function DataRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
   return (
@@ -18,6 +22,14 @@ function DataRow({ label, value, last }: { label: string; value: string; last?: 
 export default function MarcheDetail() {
   const { ticker } = useParams<{ ticker: string }>()
   const navigate = useNavigate()
+  const { isPro } = useAuth()
+  const { capital, updateCapital } = useProfilInvestisseur()
+  const sim = usePortfolioSimulator()
+  const [tradeModal, setTradeModal] = useState<'buy' | 'sell' | null>(null)
+  const [amount, setAmount] = useState('')
+  const [quantity, setQuantity] = useState('')
+  const [tradeError, setTradeError] = useState('')
+  const [tradeSubmitting, setTradeSubmitting] = useState(false)
   const [company, setCompany] = useState<DbCompany | null>(null)
   const [cours, setCours] = useState<number | null>(null)
   const [dayChange, setDayChange] = useState<number | null>(null)
@@ -142,6 +154,34 @@ export default function MarcheDetail() {
       .join(' ')
   }
   const up = (dayChange ?? 0) >= 0
+  const ownedPosition = sim.positions.find((p) => p.ticker === ticker)
+
+  async function handleTradeSubmit() {
+    if (!ticker || cours == null) return
+    setTradeError('')
+    setTradeSubmitting(true)
+    try {
+      if (tradeModal === 'buy') {
+        const n = Number(amount)
+        if (!Number.isFinite(n) || n <= 0) throw new Error('Entrez un montant valide.')
+        if (capital != null && n > capital) throw new Error(`Montant supérieur à votre capital disponible (${capital.toLocaleString('fr-FR')} FCFA).`)
+        const qty = await sim.buy({ ticker, stockName: companyName, sector: company?.sector ?? null, amountFcfa: n, cours })
+        if (capital != null) await updateCapital(capital - qty * cours)
+      } else if (tradeModal === 'sell') {
+        const n = Number(quantity)
+        if (!Number.isFinite(n) || n <= 0) throw new Error('Entrez une quantité valide.')
+        if (!ownedPosition || n > ownedPosition.quantity) throw new Error(`Vous ne détenez que ${ownedPosition?.quantity ?? 0} action(s).`)
+        const proceeds = await sim.sell({ ticker, quantity: n, cours })
+        if (capital != null) await updateCapital(capital + proceeds)
+      }
+      setTradeModal(null)
+      setAmount('')
+      setQuantity('')
+    } catch (err) {
+      setTradeError(err instanceof Error ? err.message : 'Erreur')
+    }
+    setTradeSubmitting(false)
+  }
 
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: '#0A0A0F' }}>
@@ -258,7 +298,103 @@ export default function MarcheDetail() {
             <p className="text-textMuted text-xs">Pas assez d'historique pour générer une analyse sur cette valeur.</p>
           )}
         </div>
+
+        {isPro ? (
+          <div className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
+            <p className="text-textMuted text-[10px] font-bold uppercase tracking-wide mb-2.5">Passer un ordre</p>
+            {ownedPosition && (
+              <p className="text-textSub text-xs mb-3">
+                Vous détenez déjà <span className="text-white font-bold">{ownedPosition.quantity}</span> action
+                {ownedPosition.quantity > 1 ? 's' : ''} · PRU {formatPrice(ownedPosition.avg_buy_price)}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setTradeModal('buy')}
+                disabled={cours == null}
+                className="flex-1 rounded-xl py-3 font-extrabold text-sm disabled:opacity-40"
+                style={{ backgroundColor: '#052E16', color: '#22C55E', border: '1px solid #166534' }}
+              >
+                Acheter
+              </button>
+              <button
+                onClick={() => setTradeModal('sell')}
+                disabled={cours == null || !ownedPosition}
+                className="flex-1 rounded-xl py-3 font-extrabold text-sm disabled:opacity-40"
+                style={{ backgroundColor: '#200A0A', color: '#EF4444', border: '1px solid #7F1D1D' }}
+              >
+                Vendre
+              </button>
+            </div>
+          </div>
+        ) : (
+          <ProTeaser title="Passez vos propres ordres" description="Passez à Pro pour acheter ou vendre n'importe quelle valeur de la BRVM, au cours réel, en simulation.">
+            <div style={{ height: 90 }} />
+          </ProTeaser>
+        )}
       </div>
+
+      {tradeModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center sheet-backdrop-transition" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} onClick={() => setTradeModal(null)}>
+          <div className="w-full rounded-t-3xl p-5 sheet-transition" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-extrabold text-base">
+                {tradeModal === 'buy' ? 'Acheter' : 'Vendre'} — {companyName}
+              </h3>
+              <button onClick={() => setTradeModal(null)} aria-label="Fermer">
+                <X size={20} color="#8A8A9A" />
+              </button>
+            </div>
+
+            <p className="text-textSub text-xs mb-3">
+              Cours actuel réel : <span className="text-primary font-bold">{cours != null ? formatPrice(cours) : '—'}</span>
+            </p>
+
+            {tradeModal === 'buy' ? (
+              <>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="Montant à investir en FCFA"
+                  className="w-full rounded-xl px-3 py-3 text-white text-sm outline-none mb-1.5"
+                  style={{ backgroundColor: '#1A1A24', border: '1px solid #2A2A3A' }}
+                  autoFocus
+                />
+                {amount && cours != null && Number(amount) > 0 && (
+                  <p className="text-textSub text-xs mb-3">≈ {Math.floor(Number(amount) / cours)} action(s) ({formatPrice(Math.floor(Number(amount) / cours) * cours)})</p>
+                )}
+              </>
+            ) : (
+              <>
+                <input
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  placeholder={`Nombre d'actions (max ${ownedPosition?.quantity ?? 0})`}
+                  className="w-full rounded-xl px-3 py-3 text-white text-sm outline-none mb-1.5"
+                  style={{ backgroundColor: '#1A1A24', border: '1px solid #2A2A3A' }}
+                  autoFocus
+                />
+                {quantity && cours != null && Number(quantity) > 0 && (
+                  <p className="text-textSub text-xs mb-3">≈ {formatPrice(Number(quantity) * cours)}</p>
+                )}
+              </>
+            )}
+
+            {tradeError && <p className="text-sell text-xs mb-3">{tradeError}</p>}
+
+            <button
+              onClick={handleTradeSubmit}
+              disabled={tradeSubmitting}
+              className="w-full py-3.5 rounded-xl font-extrabold text-sm disabled:opacity-40"
+              style={{ backgroundColor: tradeModal === 'buy' ? '#22C55E' : '#EF4444', color: '#0A0A0F' }}
+            >
+              {tradeSubmitting ? 'Traitement…' : tradeModal === 'buy' ? 'Confirmer l\u2019achat' : 'Confirmer la vente'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
