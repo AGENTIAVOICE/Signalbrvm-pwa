@@ -1,4 +1,30 @@
-import { Activity, Trophy, ArrowUp, ArrowDown, ArrowDownAZ, ChevronRight, Search, Building2, X, Layers } from 'lucide-react'
+import {
+  Activity,
+  Trophy,
+  ArrowUp,
+  ArrowDown,
+  ArrowDownAZ,
+  ChevronRight,
+  Search,
+  Building2,
+  X,
+  Layers,
+  Plane,
+  Landmark,
+  Store,
+  Factory,
+  Car,
+  Zap,
+  Shirt,
+  Briefcase,
+  BookOpen,
+  Wheat,
+  Radio,
+  Sprout,
+  Truck,
+  HardHat,
+  type LucideIcon,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBrvmMarket } from '../hooks/useData'
@@ -15,6 +41,28 @@ function todayLabel() {
 function varColor(v: number | null) {
   if (v == null || v === 0) return '#94A3B8'
   return v > 0 ? '#22C55E' : '#EF4444'
+}
+
+const SECTOR_ICONS: Record<string, LucideIcon> = {
+  Aviation: Plane,
+  Bancaire: Landmark,
+  Distribution: Store,
+  Industrie: Factory,
+  'Distribution automobile': Car,
+  Énergie: Zap,
+  'Industrie textile': Shirt,
+  Services: Briefcase,
+  Édition: BookOpen,
+  Agroalimentaire: Wheat,
+  Télécommunications: Radio,
+  'Agro-industrie': Sprout,
+  'Services financiers': Landmark,
+  'Transport et logistique': Truck,
+  BTP: HardHat,
+}
+
+function sectorIcon(sector: string): LucideIcon {
+  return SECTOR_ICONS[sector] ?? Building2
 }
 
 function SortButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof ArrowUp; label: string }) {
@@ -203,22 +251,25 @@ function MarcheInner() {
 
         {showingSectors && (
           <div className="grid grid-cols-2 gap-2.5">
-            {sectorGroups.map(([sector, count]) => (
-              <button
-                key={sector}
-                onClick={() => setSelectedSector(sector)}
-                className="rounded-xl p-3.5 text-left tappable"
-                style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
-              >
-                <div className="flex items-center justify-center rounded-lg mb-2" style={{ width: 28, height: 28, backgroundColor: '#1A1A24' }}>
-                  <Building2 size={14} color="#F5C842" />
-                </div>
-                <p className="text-white font-bold text-xs mb-0.5">{sector}</p>
-                <p className="text-textMuted text-[10px]">
-                  {count} valeur{count > 1 ? 's' : ''}
-                </p>
-              </button>
-            ))}
+            {sectorGroups.map(([sector, count]) => {
+              const Icon = sectorIcon(sector)
+              return (
+                <button
+                  key={sector}
+                  onClick={() => setSelectedSector(sector)}
+                  className="rounded-xl p-3.5 text-left tappable"
+                  style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
+                >
+                  <div className="flex items-center justify-center rounded-lg mb-2" style={{ width: 28, height: 28, backgroundColor: '#1A1A24' }}>
+                    <Icon size={14} color="#F5C842" />
+                  </div>
+                  <p className="text-white font-bold text-xs mb-0.5">{sector}</p>
+                  <p className="text-textMuted text-[10px]">
+                    {count} valeur{count > 1 ? 's' : ''}
+                  </p>
+                </button>
+              )
+            })}
           </div>
         )}
 
