@@ -232,8 +232,8 @@ function MarcheInner() {
 
         {!loading && !error && !query.trim() && (
           <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-            <SortButton active={sortMode === 'asc'} onClick={() => { setSortMode('asc'); setSelectedSector(null) }} icon={ArrowUp} label="Flop" />
-            <SortButton active={sortMode === 'desc'} onClick={() => { setSortMode('desc'); setSelectedSector(null) }} icon={ArrowDown} label="Top" />
+            <SortButton active={sortMode === 'asc'} onClick={() => { setSortMode('asc'); setSelectedSector(null) }} icon={ArrowDown} label="Flop" />
+            <SortButton active={sortMode === 'desc'} onClick={() => { setSortMode('desc'); setSelectedSector(null) }} icon={ArrowUp} label="Top" />
             <SortButton active={sortMode === 'name'} onClick={() => { setSortMode('name'); setSelectedSector(null) }} icon={ArrowDownAZ} label="Nom" />
             <SortButton active={sortMode === 'sector'} onClick={() => setSortMode('sector')} icon={Layers} label="Secteur d'activité" />
           </div>
