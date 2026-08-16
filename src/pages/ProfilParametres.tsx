@@ -35,6 +35,7 @@ export default function ProfilParametres() {
   const { signOut } = useAuth()
   const [notifications, setNotifications] = useState(false)
   const [notifLoading, setNotifLoading] = useState(true)
+  const [notifError, setNotifError] = useState(false)
 
   useEffect(() => {
     getOneSignalSubscriptionState().then((optedIn) => {
@@ -46,7 +47,12 @@ export default function ProfilParametres() {
   async function toggleNotifications() {
     const next = !notifications
     setNotifications(next)
-    await setOneSignalSubscription(next)
+    setNotifError(false)
+    const ok = await setOneSignalSubscription(next)
+    if (!ok) {
+      setNotifications(!next)
+      setNotifError(true)
+    }
   }
   const [modal, setModal] = useState<ModalKind>(null)
 
@@ -91,6 +97,11 @@ export default function ProfilParametres() {
                 />
               </button>
             </div>
+            {notifError && (
+              <p className="px-4 pb-3 text-[11px]" style={{ color: '#EF4444', backgroundColor: '#111118' }}>
+                Impossible d'activer les notifications — vérifiez qu'aucun bloqueur de publicité ne bloque onesignal.com, puis réessayez.
+              </p>
+            )}
             <MenuItem icon={Lock} color="#3B82F6" label="Sécurité" onClick={() => setModal('security')} />
             <MenuItem icon={TrendingUp} color="#22C55E" label="Préférences marché" onClick={() => setModal('market_prefs')} last />
           </section>

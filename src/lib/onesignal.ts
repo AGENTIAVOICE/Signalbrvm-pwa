@@ -21,6 +21,21 @@ interface OneSignalSdk {
 }
 
 const ONESIGNAL_APP_ID = '1c69d75a-5af4-43f8-9b75-40179316f764'
+const SDK_TIMEOUT_MS = 4000
+
+// Le SDK OneSignal peut échouer à se charger (bloqueur de pub, réseau,
+// domaine bloqué...) — sans filet de sécurité, tout ce qui attend le SDK
+// resterait bloqué indéfiniment (bouton grisé pour toujours). Ce petit
+// utilitaire garantit qu'on abandonne proprement après quelques secondes.
+function withTimeout<T>(promise: Promise<T>, fallback: T, ms = SDK_TIMEOUT_MS): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms)
+    promise.then((v) => {
+      clearTimeout(timer)
+      resolve(v)
+    })
+  })
+}
 
 // État brut de la permission navigateur (indépendant de OneSignal) — permet
 // de savoir s'il faut encore proposer la bannière ("default") ou si
@@ -62,25 +77,27 @@ export function identifyOneSignalUser(userId: string) {
 }
 
 export function getOneSignalSubscriptionState(): Promise<boolean> {
-  return new Promise((resolve) => {
+  const raw = new Promise<boolean>((resolve) => {
     window.OneSignalDeferred = window.OneSignalDeferred || []
     window.OneSignalDeferred.push((OneSignal) => {
       resolve(Boolean(OneSignal.User?.PushSubscription?.optedIn))
     })
   })
+  return withTimeout(raw, false)
 }
 
-export function setOneSignalSubscription(enabled: boolean): Promise<void> {
-  return new Promise((resolve) => {
+export function setOneSignalSubscription(enabled: boolean): Promise<boolean> {
+  const raw = new Promise<boolean>((resolve) => {
     window.OneSignalDeferred = window.OneSignalDeferred || []
     window.OneSignalDeferred.push(async (OneSignal) => {
       try {
         if (enabled) await OneSignal.User.PushSubscription.optIn()
         else await OneSignal.User.PushSubscription.optOut()
+        resolve(true)
       } catch {
-        // best-effort
+        resolve(false)
       }
-      resolve()
     })
   })
+  return withTimeout(raw, false)
 }
