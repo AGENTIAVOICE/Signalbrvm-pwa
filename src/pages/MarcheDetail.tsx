@@ -215,6 +215,8 @@ export default function MarcheDetail() {
             </div>
           </div>
 
+          {company?.description && <p className="text-textSub text-xs leading-relaxed mb-3.5">{company.description}</p>}
+
           {cours != null ? (
             <div className="flex items-baseline gap-2 mb-3">
               <span className="text-white font-extrabold text-2xl">{formatPrice(cours)}</span>

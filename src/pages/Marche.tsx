@@ -1,8 +1,9 @@
-import { Activity, Trophy, ArrowUp, ArrowDown, ArrowDownAZ, ChevronRight } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Activity, Trophy, ArrowUp, ArrowDown, ArrowDownAZ, ChevronRight, Search, Building2, X, Layers } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBrvmMarket } from '../hooks/useData'
 import { usePortfolioSimulator } from '../hooks/usePortfolioSimulator'
+import { supabase } from '../lib/supabase'
 import { RefreshButton } from '../components/RefreshButton'
 import { formatPrice, formatPercent, formatRelativeTime } from '../lib/theme'
 
@@ -36,7 +37,19 @@ function MarcheInner() {
   const navigate = useNavigate()
   const { rows, loading, error, refetch } = useBrvmMarket()
   const { positions } = usePortfolioSimulator()
-  const [sortMode, setSortMode] = useState<'asc' | 'desc' | 'name'>('asc')
+  const [sortMode, setSortMode] = useState<'asc' | 'desc' | 'name' | 'sector'>('asc')
+  const [query, setQuery] = useState('')
+  const [sectorByTicker, setSectorByTicker] = useState<Record<string, string>>({})
+  const [selectedSector, setSelectedSector] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase
+      .from('companies')
+      .select('ticker, sector')
+      .then(({ data }) => {
+        setSectorByTicker(Object.fromEntries((data ?? []).filter((c) => c.sector).map((c) => [c.ticker, c.sector as string])))
+      })
+  }, [])
 
   const ownedTickers = useMemo(() => new Set(positions.filter((p) => p.quantity > 0).map((p) => p.ticker)), [positions])
 
@@ -48,17 +61,40 @@ function MarcheInner() {
 
   // Les 3 meilleures performances du jour, mises en avant à part — le reste
   // du marché est trié selon le choix de l'utilisateur (croissant,
-  // décroissant, ou par nom).
+  // décroissant, ou par nom), ou filtré par recherche/secteur.
   const { top3, rest } = useMemo(() => {
     const withVar = rows.filter((r) => r.variation_pct != null)
     const sortedDesc = [...withVar].sort((a, b) => (b.variation_pct ?? 0) - (a.variation_pct ?? 0))
     const bestTickers = new Set(sortedDesc.slice(0, 3).map((r) => r.ticker))
-    const remaining = [...rows.filter((r) => !bestTickers.has(r.ticker))]
+    let remaining = [...rows.filter((r) => !bestTickers.has(r.ticker))]
+
+    if (query.trim()) {
+      const q = query.trim().toLowerCase()
+      remaining = remaining.filter((r) => r.ticker.toLowerCase().includes(q) || (r.company_name ?? '').toLowerCase().includes(q))
+    }
+    if (sortMode === 'sector' && selectedSector) {
+      remaining = remaining.filter((r) => sectorByTicker[r.ticker] === selectedSector)
+    }
+
     if (sortMode === 'asc') remaining.sort((a, b) => (a.variation_pct ?? -Infinity) - (b.variation_pct ?? -Infinity))
     else if (sortMode === 'desc') remaining.sort((a, b) => (b.variation_pct ?? -Infinity) - (a.variation_pct ?? -Infinity))
     else remaining.sort((a, b) => (a.company_name ?? a.ticker).localeCompare(b.company_name ?? b.ticker))
     return { top3: sortedDesc.slice(0, 3), rest: remaining }
-  }, [rows, sortMode])
+  }, [rows, sortMode, query, selectedSector, sectorByTicker])
+
+  // Regroupement des entreprises par secteur d'activité, pour la navigation
+  // "Secteur d'activité" — calculé une fois que les secteurs sont chargés.
+  const sectorGroups = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const r of rows) {
+      const sector = sectorByTicker[r.ticker]
+      if (!sector) continue
+      counts.set(sector, (counts.get(sector) ?? 0) + 1)
+    }
+    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  }, [rows, sectorByTicker])
+
+  const showingSectors = sortMode === 'sector' && !selectedSector && !query.trim()
 
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: '#0A0A0F' }}>
@@ -85,6 +121,24 @@ function MarcheInner() {
       </div>
 
       <div className="px-4">
+        {!loading && !error && (
+          <div className="relative mb-3">
+            <Search size={15} color="#4A4A5A" className="absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Rechercher une entreprise (nom ou ticker)..."
+              className="w-full rounded-xl py-2.5 pl-9 pr-9 text-sm text-white outline-none"
+              style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
+            />
+            {query && (
+              <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2" aria-label="Effacer">
+                <X size={15} color="#4A4A5A" />
+              </button>
+            )}
+          </div>
+        )}
+
         {loading && (
           <div className="grid grid-cols-2 gap-3">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -95,7 +149,7 @@ function MarcheInner() {
 
         {error && !loading && <p className="text-sell text-sm text-center py-10">{error}</p>}
 
-        {!loading && !error && top3.length > 0 && (
+        {!loading && !error && top3.length > 0 && !query.trim() && !selectedSector && !showingSectors && (
           <div className="mb-5">
             <div className="flex items-center gap-1.5 mb-2.5">
               <Trophy size={14} color="#F5C842" />
@@ -128,15 +182,47 @@ function MarcheInner() {
           </div>
         )}
 
-        {!loading && !error && (
-          <div className="flex items-center gap-1.5 mb-3">
-            <SortButton active={sortMode === 'asc'} onClick={() => setSortMode('asc')} icon={ArrowUp} label="Flop" />
-            <SortButton active={sortMode === 'desc'} onClick={() => setSortMode('desc')} icon={ArrowDown} label="Top" />
-            <SortButton active={sortMode === 'name'} onClick={() => setSortMode('name')} icon={ArrowDownAZ} label="Nom" />
+        {!loading && !error && !query.trim() && (
+          <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+            <SortButton active={sortMode === 'asc'} onClick={() => { setSortMode('asc'); setSelectedSector(null) }} icon={ArrowUp} label="Flop" />
+            <SortButton active={sortMode === 'desc'} onClick={() => { setSortMode('desc'); setSelectedSector(null) }} icon={ArrowDown} label="Top" />
+            <SortButton active={sortMode === 'name'} onClick={() => { setSortMode('name'); setSelectedSector(null) }} icon={ArrowDownAZ} label="Nom" />
+            <SortButton active={sortMode === 'sector'} onClick={() => setSortMode('sector')} icon={Layers} label="Secteur d'activité" />
           </div>
         )}
 
-        {!loading && !error && (
+        {sortMode === 'sector' && selectedSector && !query.trim() && (
+          <button
+            onClick={() => setSelectedSector(null)}
+            className="flex items-center gap-1.5 mb-3 rounded-full px-3 py-1.5 text-[11px] font-bold tappable"
+            style={{ backgroundColor: '#1F1A0A', color: '#F5C842', border: '1px solid #F5C842' }}
+          >
+            <X size={12} /> {selectedSector}
+          </button>
+        )}
+
+        {showingSectors && (
+          <div className="grid grid-cols-2 gap-2.5">
+            {sectorGroups.map(([sector, count]) => (
+              <button
+                key={sector}
+                onClick={() => setSelectedSector(sector)}
+                className="rounded-xl p-3.5 text-left tappable"
+                style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
+              >
+                <div className="flex items-center justify-center rounded-lg mb-2" style={{ width: 28, height: 28, backgroundColor: '#1A1A24' }}>
+                  <Building2 size={14} color="#F5C842" />
+                </div>
+                <p className="text-white font-bold text-xs mb-0.5">{sector}</p>
+                <p className="text-textMuted text-[10px]">
+                  {count} valeur{count > 1 ? 's' : ''}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {!loading && !error && !showingSectors && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {rest.map((r) => {
               const owned = ownedTickers.has(r.ticker)
