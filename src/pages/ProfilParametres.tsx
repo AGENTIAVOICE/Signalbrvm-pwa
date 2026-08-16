@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Bell,
@@ -15,8 +15,10 @@ import {
   Mail,
   Search,
   Plus,
+  Layers,
   X as XIcon,
 } from 'lucide-react'
+import { sectorIcon } from '../lib/sectorIcons'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useWatchlist } from '../hooks/useWatchlist'
@@ -170,15 +172,50 @@ export default function ProfilParametres() {
   )
 }
 
+interface BrowsableCompany {
+  ticker: string
+  full_name: string
+  short_name: string | null
+  sector: string | null
+  cours: number | null
+}
+
 function MarketPrefsModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
   const { watched, loading, follow, unfollow, watchedTickers } = useWatchlist()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<CompanySuggestion[]>([])
   const [searching, setSearching] = useState(false)
+  const [allCompanies, setAllCompanies] = useState<BrowsableCompany[]>([])
+  const [selectedSector, setSelectedSector] = useState<string | null>(null)
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from('companies').select('ticker, full_name, short_name, sector'),
+      supabase.from('brvm_cours').select('ticker, cours'),
+    ]).then(([companies, cours]) => {
+      const coursByTicker = new Map((cours.data ?? []).map((c) => [c.ticker, c.cours]))
+      setAllCompanies((companies.data ?? []).map((c) => ({ ...c, cours: coursByTicker.get(c.ticker) ?? null })))
+    })
+  }, [])
+
+  const sectorGroups = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const c of allCompanies) {
+      if (!c.sector) continue
+      counts.set(c.sector, (counts.get(c.sector) ?? 0) + 1)
+    }
+    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  }, [allCompanies])
+
+  const sectorCompanies = useMemo(
+    () => (selectedSector ? allCompanies.filter((c) => c.sector === selectedSector).sort((a, b) => a.full_name.localeCompare(b.full_name)) : []),
+    [allCompanies, selectedSector]
+  )
 
   async function handleSearch(v: string) {
     setQuery(v)
+    setSelectedSector(null)
     if (!v.trim()) {
       setResults([])
       return
@@ -206,7 +243,7 @@ function MarketPrefsModal({ onClose }: { onClose: () => void }) {
         />
       </div>
 
-      {query.trim() && (
+      {query.trim() ? (
         <div className="flex flex-col gap-1.5 mb-4">
           {searching && <p className="text-textMuted text-xs py-2">Recherche…</p>}
           {!searching && results.length === 0 && <p className="text-textMuted text-xs py-2">Aucune entreprise trouvée.</p>}
@@ -239,6 +276,75 @@ function MarketPrefsModal({ onClose }: { onClose: () => void }) {
                 </div>
               )
             })}
+        </div>
+      ) : (
+        <div className="mb-4">
+          <p className="text-textSub text-xs font-bold mb-2.5 flex items-center gap-1.5">
+            <Layers size={13} color="#F5C842" /> Parcourir par secteur d'activité
+          </p>
+          {!selectedSector ? (
+            <div className="grid grid-cols-2 gap-2">
+              {sectorGroups.map(([sector, count]) => {
+                const Icon = sectorIcon(sector)
+                return (
+                  <button
+                    key={sector}
+                    onClick={() => setSelectedSector(sector)}
+                    className="rounded-xl p-3 text-left tappable"
+                    style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}
+                  >
+                    <div className="flex items-center justify-center rounded-lg mb-1.5" style={{ width: 24, height: 24, backgroundColor: '#1A1A24' }}>
+                      <Icon size={12} color="#F5C842" />
+                    </div>
+                    <p className="text-white font-bold text-[11px] leading-tight mb-0.5">{sector}</p>
+                    <p className="text-textMuted text-[10px]">
+                      {count} valeur{count > 1 ? 's' : ''}
+                    </p>
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <div>
+              <button
+                onClick={() => setSelectedSector(null)}
+                className="flex items-center gap-1.5 mb-2.5 rounded-full px-3 py-1.5 text-[11px] font-bold"
+                style={{ backgroundColor: '#1F1A0A', color: '#F5C842', border: '1px solid #F5C842' }}
+              >
+                <XIcon size={11} /> {selectedSector}
+              </button>
+              <div className="flex flex-col gap-1.5">
+                {sectorCompanies.map((c) => {
+                  const isWatched = watchedTickers.has(c.ticker)
+                  return (
+                    <div key={c.ticker} className="flex items-center justify-between rounded-xl px-3 py-2.5" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
+                      <div className="min-w-0">
+                        <p className="text-white text-xs font-bold truncate">{c.short_name || c.full_name}</p>
+                        <p className="text-textMuted text-[10px]">
+                          {c.ticker} {c.cours != null && `· ${formatPrice(c.cours)}`}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => (isWatched ? unfollow(c.ticker) : follow(c.ticker))}
+                        className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-bold shrink-0"
+                        style={isWatched ? { backgroundColor: '#052E16', color: '#22C55E' } : { backgroundColor: '#1F1A0A', color: '#F5C842' }}
+                      >
+                        {isWatched ? (
+                          <>
+                            <Check size={12} /> Suivi
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={12} /> Suivre
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

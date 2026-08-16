@@ -6,30 +6,15 @@ import {
   ArrowDownAZ,
   ChevronRight,
   Search,
-  Building2,
   X,
   Layers,
-  Plane,
-  Landmark,
-  Store,
-  Factory,
-  Car,
-  Zap,
-  Shirt,
-  Briefcase,
-  BookOpen,
-  Wheat,
-  Radio,
-  Sprout,
-  Truck,
-  HardHat,
-  type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBrvmMarket } from '../hooks/useData'
 import { usePortfolioSimulator } from '../hooks/usePortfolioSimulator'
 import { supabase } from '../lib/supabase'
+import { sectorIcon } from '../lib/sectorIcons'
 import { RefreshButton } from '../components/RefreshButton'
 import { formatPrice, formatPercent, formatRelativeTime } from '../lib/theme'
 
@@ -41,28 +26,6 @@ function todayLabel() {
 function varColor(v: number | null) {
   if (v == null || v === 0) return '#94A3B8'
   return v > 0 ? '#22C55E' : '#EF4444'
-}
-
-const SECTOR_ICONS: Record<string, LucideIcon> = {
-  Aviation: Plane,
-  Bancaire: Landmark,
-  Distribution: Store,
-  Industrie: Factory,
-  'Distribution automobile': Car,
-  Énergie: Zap,
-  'Industrie textile': Shirt,
-  Services: Briefcase,
-  Édition: BookOpen,
-  Agroalimentaire: Wheat,
-  Télécommunications: Radio,
-  'Agro-industrie': Sprout,
-  'Services financiers': Landmark,
-  'Transport et logistique': Truck,
-  BTP: HardHat,
-}
-
-function sectorIcon(sector: string): LucideIcon {
-  return SECTOR_ICONS[sector] ?? Building2
 }
 
 function SortButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof ArrowUp; label: string }) {
