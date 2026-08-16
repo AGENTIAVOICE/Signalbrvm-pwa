@@ -287,6 +287,8 @@ export default function AlertDetail() {
             )}
           </div>
 
+          {company?.description && <p className="text-textSub text-xs leading-relaxed mb-3">{company.description}</p>}
+
           <div className="grid grid-cols-2 gap-2 pt-2.5" style={{ borderTop: '1px solid #2A2A3A' }}>
             <Stat label="Type d'ordre" value={isPro ? (isBuy ? 'ACHAT' : 'VENTE') : <LockedInline />} color={isPro ? accent : undefined} />
             {alert.price_target != null && <Stat label="Cours limite" value={isPro ? formatPrice(alert.price_target) : <LockedInline />} />}

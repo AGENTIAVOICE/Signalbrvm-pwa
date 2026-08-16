@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { usePortfolioSimulator } from '../hooks/usePortfolioSimulator'
 import { useProfilInvestisseur } from '../hooks/useProfilInvestisseur'
 import { useFollowedAlerts } from '../hooks/useFollowedAlerts'
 import { useStockHistory, computeRSI } from '../hooks/useData'
+import { supabase } from '../lib/supabase'
 import { formatPrice } from '../lib/theme'
 
 export default function SimulationDetail() {
@@ -19,6 +20,17 @@ export default function SimulationDetail() {
   const [quantity, setQuantity] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [description, setDescription] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!ticker) return
+    supabase
+      .from('companies')
+      .select('description')
+      .eq('ticker', ticker)
+      .maybeSingle()
+      .then(({ data }) => setDescription(data?.description ?? null))
+  }, [ticker])
 
   const position = sim.positions.find((p) => p.ticker === ticker)
 
@@ -114,6 +126,8 @@ export default function SimulationDetail() {
           <p className="text-textMuted text-xs mb-3">
             {position.quantity} action{position.quantity > 1 ? 's' : ''} · prix d'entrée {formatPrice(position.avg_buy_price)}
           </p>
+
+          {description && <p className="text-textSub text-xs leading-relaxed mb-3">{description}</p>}
 
           <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: 130 }}>
             <line x1={pad} y1={entryY} x2={w - pad} y2={entryY} stroke="#8A8A9A" strokeWidth={1} strokeDasharray="4 4" />

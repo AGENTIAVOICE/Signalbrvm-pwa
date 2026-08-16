@@ -17,18 +17,20 @@ function AnalysisMarketPanel({ ticker }: { ticker: string }) {
   const [cours, setCours] = useState<number | null>(null)
   const [dayChange, setDayChange] = useState<number | null>(null)
   const [sector, setSector] = useState<string | null>(null)
+  const [description, setDescription] = useState<string | null>(null)
   const { history } = useStockHistory(ticker)
 
   useEffect(() => {
     let cancelled = false
     Promise.all([
       supabase.from('brvm_cours').select('cours, variation_pct').eq('ticker', ticker).maybeSingle(),
-      supabase.from('companies').select('sector').eq('ticker', ticker).maybeSingle(),
+      supabase.from('companies').select('sector, description').eq('ticker', ticker).maybeSingle(),
     ]).then(([live, comp]) => {
       if (cancelled) return
       setCours(live.data?.cours ?? null)
       setDayChange(live.data?.variation_pct ?? null)
       setSector(comp.data?.sector ?? null)
+      setDescription(comp.data?.description ?? null)
     })
     return () => {
       cancelled = true
@@ -65,6 +67,8 @@ function AnalysisMarketPanel({ ticker }: { ticker: string }) {
           {sector ? ` · ${sector}` : ''}
         </p>
       </div>
+
+      {description && <p className="text-textSub text-xs leading-relaxed mb-3">{description}</p>}
 
       {cours != null ? (
         <div className="flex items-baseline gap-2 mb-3">
