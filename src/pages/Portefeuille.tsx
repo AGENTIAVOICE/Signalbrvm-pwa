@@ -526,7 +526,7 @@ function TradeModal({
 }
 
 function CollapsibleSection({ title, count, children }: { title: string; count: number; children: ReactNode }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
   return (
     <section>
       <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between mb-2 tappable">
