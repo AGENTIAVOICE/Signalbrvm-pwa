@@ -68,70 +68,81 @@ export default function PortfolioRecap() {
             Aucune position pour le moment — achetez une valeur depuis Marché ou Portefeuille pour la voir apparaître ici.
           </p>
         ) : (
-          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #2A2A3A' }}>
-            <div className="overflow-x-auto">
-              <table className="w-full" style={{ minWidth: 820, borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#1F1A0A' }}>
-                    {['', 'Valeur', 'Quantité', 'Prix de revient', 'Cours', 'Var. jour', 'Capital initial', 'Gain (FCFA)', 'Gain (%)'].map((h) => (
-                      <th key={h} className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: '#F5C842', whiteSpace: 'nowrap' }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r, i) => {
-                    const up = r.gainFcfa >= 0
-                    const upDay = (r.variation_pct ?? 0) >= 0
-                    return (
-                      <tr key={r.id} style={{ backgroundColor: i % 2 === 0 ? '#111118' : '#0D0D13', borderTop: '1px solid #1E1E2A' }}>
-                        <td className="px-3 py-3">
-                          <button
-                            onClick={() => setSellTarget(r)}
-                            className="rounded-lg px-2.5 py-1.5 text-[10px] font-extrabold tappable"
-                            style={{ backgroundColor: '#EF4444', color: '#FFFFFF', whiteSpace: 'nowrap' }}
-                          >
-                            VENDRE
-                          </button>
-                        </td>
-                        <td className="px-3 py-3 text-white text-xs font-bold" style={{ whiteSpace: 'nowrap' }}>{r.stock_name}</td>
-                        <td className="px-3 py-3 text-textSub text-xs">{r.quantity}</td>
-                        <td className="px-3 py-3 text-white text-xs font-semibold">{formatPrice(r.avg_buy_price)}</td>
-                        <td className="px-3 py-3 text-white text-xs font-bold">{formatPrice(r.cours)}</td>
-                        <td className="px-3 py-3 text-xs font-bold" style={{ color: upDay ? '#22C55E' : '#EF4444' }}>
+          <div className="flex flex-col gap-2.5">
+            {rows.map((r) => {
+              const up = r.gainFcfa >= 0
+              const upDay = (r.variation_pct ?? 0) >= 0
+              return (
+                <div key={r.id} className="rounded-2xl p-3.5" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
+                  <div className="flex items-start justify-between mb-2.5">
+                    <div className="min-w-0 pr-2">
+                      <p className="text-white font-bold text-sm truncate">{r.stock_name}</p>
+                      <p className="text-textMuted text-[11px]">
+                        {r.quantity} action{r.quantity > 1 ? 's' : ''} · PRU {formatPrice(r.avg_buy_price)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setSellTarget(r)}
+                      className="rounded-lg px-3 py-1.5 text-[11px] font-extrabold shrink-0 tappable"
+                      style={{ backgroundColor: '#EF4444', color: '#FFFFFF' }}
+                    >
+                      Vendre
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between mb-2.5">
+                    <div>
+                      <p className="text-textMuted text-[9px] uppercase tracking-wide mb-0.5">Cours actuel</p>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-white font-extrabold text-base">{formatPrice(r.cours)}</span>
+                        <span className="text-[11px] font-bold" style={{ color: upDay ? '#22C55E' : '#EF4444' }}>
                           {r.variation_pct != null ? `${upDay ? '+' : ''}${r.variation_pct.toFixed(2)}%` : '—'}
-                        </td>
-                        <td className="px-3 py-3 text-textSub text-xs">{formatPrice(r.capitalInitial)}</td>
-                        <td className="px-3 py-3 text-xs font-bold" style={{ color: up ? '#22C55E' : '#EF4444' }}>
-                          {up ? '+' : ''}
-                          {Math.round(r.gainFcfa).toLocaleString('fr-FR')}
-                        </td>
-                        <td className="px-3 py-3 text-xs font-bold" style={{ color: up ? '#22C55E' : '#EF4444' }}>
-                          {up ? '+' : ''}
-                          {r.gainPct.toFixed(2)}%
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-textMuted text-[9px] uppercase tracking-wide mb-0.5">Gain</p>
+                      <p className="font-extrabold text-base" style={{ color: up ? '#22C55E' : '#EF4444' }}>
+                        {up ? '+' : ''}
+                        {r.gainPct.toFixed(1)}%
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2.5" style={{ borderTop: '1px solid #1E1E2A' }}>
+                    <div>
+                      <p className="text-textMuted text-[9px] uppercase tracking-wide mb-0.5">Capital initial</p>
+                      <p className="text-textSub text-xs font-semibold">{formatPrice(r.capitalInitial)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-textMuted text-[9px] uppercase tracking-wide mb-0.5">Gain (FCFA)</p>
+                      <p className="text-xs font-extrabold" style={{ color: up ? '#22C55E' : '#EF4444' }}>
+                        {up ? '+' : ''}
+                        {Math.round(r.gainFcfa).toLocaleString('fr-FR')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
 
         {rows.length > 0 && (
-          <div className="rounded-2xl mt-4 overflow-hidden" style={{ border: '1px solid #2A2A3A' }}>
-            <SummaryRow label="Titres" value={format(titres)} extra={`${titresGain >= 0 ? '+' : ''}${Math.round(titresGain).toLocaleString('fr-FR')}`} extraColor={titresGain >= 0 ? '#22C55E' : '#EF4444'} />
-            <SummaryRow label="Liquidités" value={capital != null ? format(liquidites) : '—'} />
-            <SummaryRow
-              label="Totaux"
-              value={format(totaux)}
-              extra={`${titresGain >= 0 ? '+' : ''}${Math.round(titresGain).toLocaleString('fr-FR')}`}
-              extraColor={titresGain >= 0 ? '#22C55E' : '#EF4444'}
-              bold
-              last
-            />
+          <div className="mt-5">
+            <p className="text-textMuted text-[11px] font-bold uppercase tracking-wide mb-2 px-1">Résumé</p>
+            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #2A2A3A' }}>
+              <SummaryRow label="Titres" value={format(titres)} extra={`${titresGain >= 0 ? '+' : ''}${Math.round(titresGain).toLocaleString('fr-FR')}`} extraColor={titresGain >= 0 ? '#22C55E' : '#EF4444'} />
+              <SummaryRow label="Liquidités" value={capital != null ? format(liquidites) : '—'} />
+              <SummaryRow
+                label="Totaux"
+                value={format(totaux)}
+                extra={`${titresGain >= 0 ? '+' : ''}${Math.round(titresGain).toLocaleString('fr-FR')}`}
+                extraColor={titresGain >= 0 ? '#22C55E' : '#EF4444'}
+                bold
+                last
+              />
+            </div>
           </div>
         )}
       </div>
