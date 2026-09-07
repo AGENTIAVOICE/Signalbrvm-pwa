@@ -8,6 +8,7 @@ import {
   Search,
   X,
   Layers,
+  ListChecks,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -124,6 +125,15 @@ function MarcheInner() {
               <span className="rounded-full" style={{ width: 8, height: 8, backgroundColor: '#22C55E' }} />
               <span className="text-buy text-[11px] font-extrabold tracking-wide">BRVM Live</span>
             </div>
+            <button
+              onClick={() => navigate('/marche/recapitulatif')}
+              className="flex items-center justify-center rounded-full tappable"
+              style={{ width: 30, height: 30, backgroundColor: '#1F1A0A', border: '1px solid #F5C842' }}
+              aria-label="Récapitulatif des positions"
+              title="Récapitulatif des positions"
+            >
+              <ListChecks size={14} color="#F5C842" />
+            </button>
           </div>
           {lastUpdated && (
             <span className="text-textMuted text-[10px]">Mis à jour {formatRelativeTime(new Date(lastUpdated))}</span>

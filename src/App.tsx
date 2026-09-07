@@ -16,6 +16,7 @@ import Marche from './pages/Marche'
 import MarcheDetail from './pages/MarcheDetail'
 import Portefeuille from './pages/Portefeuille'
 import SimulationDetail from './pages/SimulationDetail'
+import PortfolioRecap from './pages/PortfolioRecap'
 import Profil from './pages/Profil'
 import ProfilParametres from './pages/ProfilParametres'
 import ProfilInvestisseur from './pages/ProfilInvestisseur'
@@ -68,6 +69,7 @@ export default function App() {
               <Route path="/marche/:ticker" element={<MarcheDetail />} />
               <Route path="/portefeuille" element={<Portefeuille />} />
               <Route path="/portefeuille/:ticker" element={<SimulationDetail />} />
+              <Route path="/marche/recapitulatif" element={<PortfolioRecap />} />
               <Route path="/profil" element={<Profil />} />
             </Route>
           </Route>
