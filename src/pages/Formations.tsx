@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Play, Clock, X } from 'lucide-react'
 import { FORMATION_LEVELS } from '../lib/formationLevels'
 import { getAllVideos, type DbVideo } from '../lib/api'
@@ -13,6 +13,18 @@ export default function Formations() {
   const [videos, setVideos] = useState<DbVideo[]>([])
   const [activeVideo, setActiveVideo] = useState<DbVideo | null>(null)
   const channelId = useRef(`videos_rt_${Math.random().toString(36).slice(2)}`)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Ouvre directement la vidéo visée quand on arrive depuis une notification
+  // (/formations?open=<id>) — plutôt que la simple liste.
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId || videos.length === 0) return
+    const target = videos.find((v) => v.id === openId)
+    if (target) setActiveVideo(target)
+    setSearchParams({}, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, videos])
 
   async function load() {
     if (!isPro) return

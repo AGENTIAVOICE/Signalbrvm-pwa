@@ -54,7 +54,7 @@ export function NotificationBell() {
                     onClick={() => {
                       setOpen(false)
                       if (n.alert_id) navigate(`/alertes/${n.alert_id}`)
-                      else if (n.analysis_id) navigate('/analyses')
+                      else if (n.analysis_id) navigate(`/analyses?open=${n.analysis_id}`)
                     }}
                     className="w-full text-left px-4 py-3 flex flex-col gap-1"
                     style={{ borderBottom: '1px solid #1E1E2A', backgroundColor: n.is_read ? 'transparent' : '#1F1A0A' }}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { BarChart2, X, Calendar, Percent, Building2 } from 'lucide-react'
 import { useAnalyses } from '../hooks/useData'
 import { useStockHistory, computeRSI } from '../hooks/useData'
@@ -116,11 +117,23 @@ export default function Analyses() {
   const [selected, setSelected] = useState<DbAnalysis | null>(null)
   const { ids: readIds, loaded: readsLoaded, refresh: refreshReadIds } = useReadIds('analysis')
   const setUnreadAnalyses = useAppStore((s) => s.setUnreadAnalysesCount)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   useEffect(() => {
     if (!readsLoaded) return
     setUnreadAnalyses(analyses.filter((a) => !readIds.has(a.id)).length)
   }, [analyses, readIds, readsLoaded, setUnreadAnalyses])
+
+  // Ouvre directement l'analyse visée quand on arrive depuis une
+  // notification (/analyses?open=<id>) — plutôt que la simple liste.
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId || analyses.length === 0) return
+    const target = analyses.find((a) => a.id === openId)
+    if (target) openAnalysis(target)
+    setSearchParams({}, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, analyses])
 
   function openAnalysis(a: DbAnalysis) {
     setSelected(a)
