@@ -49,7 +49,8 @@ function MarcheInner() {
   const navigate = useNavigate()
   const { rows, loading, error, refetch } = useBrvmMarket()
   const { positions } = usePortfolioSimulator()
-  const [sortMode, setSortMode] = useState<'asc' | 'desc' | 'name' | 'sector'>('asc')
+  const [sortMode, setSortMode] = useState<'asc' | 'desc' | 'name'>('desc')
+  const [sectorMode, setSectorMode] = useState(false)
   const [query, setQuery] = useState('')
   const [sectorByTicker, setSectorByTicker] = useState<Record<string, string>>({})
   const [selectedSector, setSelectedSector] = useState<string | null>(null)
@@ -84,7 +85,7 @@ function MarcheInner() {
       const q = query.trim().toLowerCase()
       remaining = remaining.filter((r) => r.ticker.toLowerCase().includes(q) || (r.company_name ?? '').toLowerCase().includes(q))
     }
-    if (sortMode === 'sector' && selectedSector) {
+    if (selectedSector) {
       remaining = remaining.filter((r) => sectorByTicker[r.ticker] === selectedSector)
     }
 
@@ -106,7 +107,7 @@ function MarcheInner() {
     return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   }, [rows, sectorByTicker])
 
-  const showingSectors = sortMode === 'sector' && !selectedSector && !query.trim()
+  const showingSectors = sectorMode && !selectedSector && !query.trim()
 
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: '#0A0A0F' }}>
@@ -203,23 +204,36 @@ function MarcheInner() {
           </div>
         )}
 
-        {!loading && !error && !query.trim() && (
+        {!loading && !error && !query.trim() && !showingSectors && (
           <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-            <SortButton active={sortMode === 'desc'} onClick={() => { setSortMode('desc'); setSelectedSector(null) }} icon={ArrowUp} label="Top" />
-            <SortButton active={sortMode === 'asc'} onClick={() => { setSortMode('asc'); setSelectedSector(null) }} icon={ArrowDown} label="Flop" />
-            <SortButton active={sortMode === 'name'} onClick={() => { setSortMode('name'); setSelectedSector(null) }} icon={ArrowDownAZ} label="Nom" />
-            <SortButton active={sortMode === 'sector'} onClick={() => setSortMode('sector')} icon={Layers} label="Secteur d'activité" />
+            <SortButton active={sortMode === 'desc'} onClick={() => setSortMode('desc')} icon={ArrowUp} label="Top" />
+            <SortButton active={sortMode === 'asc'} onClick={() => setSortMode('asc')} icon={ArrowDown} label="Flop" />
+            <SortButton active={sortMode === 'name'} onClick={() => setSortMode('name')} icon={ArrowDownAZ} label="Nom" />
+            <SortButton
+              active={sectorMode}
+              onClick={() => {
+                setSectorMode(true)
+                setSelectedSector(null)
+              }}
+              icon={Layers}
+              label="Secteur d'activité"
+            />
           </div>
         )}
 
-        {sortMode === 'sector' && selectedSector && !query.trim() && (
-          <button
-            onClick={() => setSelectedSector(null)}
-            className="flex items-center gap-1.5 mb-3 rounded-full px-3 py-1.5 text-[11px] font-bold tappable"
-            style={{ backgroundColor: '#1F1A0A', color: '#F5C842', border: '1px solid #F5C842' }}
-          >
-            <X size={12} /> {selectedSector}
-          </button>
+        {sectorMode && selectedSector && !query.trim() && (
+          <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+            <button
+              onClick={() => setSelectedSector(null)}
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold tappable"
+              style={{ backgroundColor: '#1F1A0A', color: '#F5C842', border: '1px solid #F5C842' }}
+            >
+              <X size={12} /> {selectedSector}
+            </button>
+            <SortButton active={sortMode === 'desc'} onClick={() => setSortMode('desc')} icon={ArrowUp} label="Top" />
+            <SortButton active={sortMode === 'asc'} onClick={() => setSortMode('asc')} icon={ArrowDown} label="Flop" />
+            <SortButton active={sortMode === 'name'} onClick={() => setSortMode('name')} icon={ArrowDownAZ} label="Nom" />
+          </div>
         )}
 
         {showingSectors && (
