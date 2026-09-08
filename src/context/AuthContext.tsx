@@ -125,6 +125,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null)
     previousPlan.current = null
     setPlan('free')
+    // Le service worker met en cache les réponses réseau (portefeuille,
+    // notifications, etc.) pour fonctionner hors-ligne — sur un appareil
+    // partagé, on les vide à la déconnexion pour qu'aucune donnée
+    // personnelle ne reste accessible à la prochaine personne.
+    if ('caches' in window) {
+      caches.delete('supabase-cache')
+      caches.delete('backend-cache')
+    }
   }
 
   return (

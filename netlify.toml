@@ -29,3 +29,18 @@
   for = "/sw.js"
   [headers.values]
     Cache-Control = "no-cache"
+
+# En-têtes de sécurité de base (sans risque de casser le site) : bloquent
+# l'intégration du site dans une iframe étrangère (clickjacking), le
+# détournement de type MIME, et limitent l'accès aux capteurs du navigateur
+# qu'on n'utilise pas. Un Content-Security-Policy strict n'est volontairement
+# PAS ajouté ici — il faudrait le tester en profondeur pour ne pas bloquer
+# le SDK OneSignal, Supabase Realtime, ou l'IA embarquée.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
