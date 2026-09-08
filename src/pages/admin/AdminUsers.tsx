@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Users, Search, Shield, Crown, UserCheck, CheckCircle2, XCircle, Trash2 } from 'lucide-react'
+import { Users, Search, Shield, Crown, UserCheck, CheckCircle2, XCircle, Trash2, ChevronDown } from 'lucide-react'
 import { adminApi, type AdminUser } from '../../lib/adminApi'
 import { ScreenHeader } from '../../components/admin/AdminUI'
 
@@ -226,66 +226,78 @@ function ClientCard({
   onSetPlan: (id: string, plan: 'free' | 'pro') => void
   onRemove: (id: string) => void
 }) {
+  const [open, setOpen] = useState(false)
   const isPro = String(user.subscription_plan).toLowerCase() === 'pro'
   const statusLabel = ({ approved: 'APPROUVÉ', pending: 'EN ATTENTE', rejected: 'REFUSÉ', admin: 'ADMIN' } as Record<string, string>)[user.status] ?? user.status.toUpperCase()
   const statusColor = ({ approved: '#22C55E', pending: '#F5C842', rejected: '#EF4444', admin: '#A78BFA' } as Record<string, string>)[user.status] ?? '#8A8A9A'
 
   return (
     <div className="rounded-2xl p-3.5 mb-2.5" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A' }}>
-      <UserIdentity user={user} />
-
-      <div className="flex items-center gap-2 mt-3 mb-3">
-        <span className="rounded-md px-2 py-0.5 text-[9px] font-extrabold tracking-wider" style={{ backgroundColor: `${statusColor}1A`, border: `1px solid ${statusColor}`, color: statusColor }}>
-          {statusLabel}
-        </span>
-        <span
-          className="rounded-md px-2 py-0.5 text-[9px] font-extrabold tracking-wider"
-          style={{ backgroundColor: isPro ? '#052E16' : '#1A1A24', border: `1px solid ${isPro ? '#166534' : '#3A3A4A'}`, color: isPro ? '#22C55E' : '#8A8A9A' }}
-        >
-          {isPro ? 'PRO' : 'FREE'}
-        </span>
-      </div>
-
-      {isPro ? (
-        <div
-          className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 mb-2.5 font-bold text-xs"
-          style={{ backgroundColor: '#052E16', border: '1px solid #166534', color: '#22C55E' }}
-        >
-          <Crown size={14} /> Plan Pro actif
+      <button onClick={() => setOpen((v) => !v)} className="w-full text-left">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <UserIdentity user={user} />
+          </div>
+          <ChevronDown size={16} color="#8A8A9A" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 200ms', flexShrink: 0 }} />
         </div>
-      ) : (
-        <button
-          onClick={() => onSetPlan(user.id, 'pro')}
-          className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 mb-2.5 font-bold text-xs"
-          style={{ backgroundColor: '#1A1400', border: '1px solid #D4A82E', color: '#F5C842' }}
-        >
-          <Crown size={14} /> Activer plan Pro
-        </button>
-      )}
 
-      <div className="flex items-center gap-2 mb-2">
-        <button
-          onClick={() => onSetStatus(user.id, 'approved')}
-          className="flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-bold"
-          style={{ backgroundColor: '#052E1633', border: '1px solid #166534', color: '#22C55E' }}
-        >
-          <CheckCircle2 size={13} /> Approuver
-        </button>
-        <button
-          onClick={() => onSetStatus(user.id, 'rejected')}
-          className="flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-bold"
-          style={{ backgroundColor: '#200A0A33', border: '1px solid #7F1D1D', color: '#EF4444' }}
-        >
-          <XCircle size={13} /> Rejeter
-        </button>
-      </div>
-      <button
-        onClick={() => onRemove(user.id)}
-        className="w-full flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-bold"
-        style={{ backgroundColor: '#200A0A1A', border: '1px solid #7F1D1D', color: '#EF4444' }}
-      >
-        <Trash2 size={13} /> Supprimer
+        <div className="flex items-center gap-2 mt-3">
+          <span className="rounded-md px-2 py-0.5 text-[9px] font-extrabold tracking-wider" style={{ backgroundColor: `${statusColor}1A`, border: `1px solid ${statusColor}`, color: statusColor }}>
+            {statusLabel}
+          </span>
+          <span
+            className="rounded-md px-2 py-0.5 text-[9px] font-extrabold tracking-wider"
+            style={{ backgroundColor: isPro ? '#052E16' : '#1A1A24', border: `1px solid ${isPro ? '#166534' : '#3A3A4A'}`, color: isPro ? '#22C55E' : '#8A8A9A' }}
+          >
+            {isPro ? 'PRO' : 'FREE'}
+          </span>
+        </div>
       </button>
+
+      {open && (
+        <div className="mt-3">
+          {isPro ? (
+            <div
+              className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 mb-2.5 font-bold text-xs"
+              style={{ backgroundColor: '#052E16', border: '1px solid #166534', color: '#22C55E' }}
+            >
+              <Crown size={14} /> Plan Pro actif
+            </div>
+          ) : (
+            <button
+              onClick={() => onSetPlan(user.id, 'pro')}
+              className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 mb-2.5 font-bold text-xs"
+              style={{ backgroundColor: '#1A1400', border: '1px solid #D4A82E', color: '#F5C842' }}
+            >
+              <Crown size={14} /> Activer plan Pro
+            </button>
+          )}
+
+          <div className="flex items-center gap-2 mb-2">
+            <button
+              onClick={() => onSetStatus(user.id, 'approved')}
+              className="flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-bold"
+              style={{ backgroundColor: '#052E1633', border: '1px solid #166534', color: '#22C55E' }}
+            >
+              <CheckCircle2 size={13} /> Approuver
+            </button>
+            <button
+              onClick={() => onSetStatus(user.id, 'rejected')}
+              className="flex-1 flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-bold"
+              style={{ backgroundColor: '#200A0A33', border: '1px solid #7F1D1D', color: '#EF4444' }}
+            >
+              <XCircle size={13} /> Rejeter
+            </button>
+          </div>
+          <button
+            onClick={() => onRemove(user.id)}
+            className="w-full flex items-center justify-center gap-1 rounded-xl py-2 text-xs font-bold"
+            style={{ backgroundColor: '#200A0A1A', border: '1px solid #7F1D1D', color: '#EF4444' }}
+          >
+            <Trash2 size={13} /> Supprimer
+          </button>
+        </div>
+      )}
     </div>
   )
 }
