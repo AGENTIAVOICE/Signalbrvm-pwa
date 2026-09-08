@@ -12,10 +12,17 @@ export interface CompanySuggestion extends DbCompany {
 export async function searchCompanies(query: string): Promise<CompanySuggestion[]> {
   const q = query.trim()
   if (!q) return []
+  // La chaîne de recherche est interpolée dans le mini-langage de filtre de
+  // PostgREST (.or(...)) — sans nettoyage, des caractères comme , ( ) .
+  // permettraient d'injecter des conditions de filtre supplémentaires non
+  // prévues. On retire tout ce qui n'est pas utile à une recherche de nom
+  // d'entreprise (lettres, chiffres, espaces, tirets, apostrophes).
+  const safe = q.replace(/[^\p{L}\p{N}\s'-]/gu, '').slice(0, 80)
+  if (!safe) return []
   const { data: companies, error } = await supabase
     .from('companies')
     .select('*')
-    .or(`full_name.ilike.%${q}%,short_name.ilike.%${q}%,ticker.ilike.%${q}%`)
+    .or(`full_name.ilike.%${safe}%,short_name.ilike.%${safe}%,ticker.ilike.%${safe}%`)
     .eq('is_active', true)
     .limit(8)
   if (error || !companies) return []
