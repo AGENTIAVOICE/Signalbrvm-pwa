@@ -23,6 +23,9 @@ interface ChatMessage {
   content: string
 }
 
+const ALLOWED_ORIGIN = 'https://signalbrvm.com'
+const MAX_MESSAGE_LENGTH = 2000
+
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -33,6 +36,14 @@ function jsonResponse(status: number, body: unknown): Response {
 export default async (req: Request, _context: Context) => {
   if (req.method !== 'POST') {
     return jsonResponse(405, { error: { message: 'Méthode non autorisée' } })
+  }
+
+  // Chaque appel ici déclenche un vrai appel IA payant. Sans cette
+  // vérification, n'importe quel script externe pourrait spammer ce point
+  // d'accès et générer des coûts — même principe que market-analysis.mts.
+  const origin = req.headers.get('origin') ?? req.headers.get('referer') ?? ''
+  if (!origin.startsWith(ALLOWED_ORIGIN)) {
+    return jsonResponse(403, { error: { message: 'Origine non autorisée', code: 'FORBIDDEN_ORIGIN' } })
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY
@@ -64,9 +75,10 @@ export default async (req: Request, _context: Context) => {
       m === null ||
       (m as ChatMessage).role !== 'user' && (m as ChatMessage).role !== 'assistant' ||
       typeof (m as ChatMessage).content !== 'string' ||
-      (m as ChatMessage).content.trim().length === 0
+      (m as ChatMessage).content.trim().length === 0 ||
+      (m as ChatMessage).content.length > MAX_MESSAGE_LENGTH
     ) {
-      return jsonResponse(400, { error: { message: 'Format de message invalide' } })
+      return jsonResponse(400, { error: { message: `Format de message invalide (max ${MAX_MESSAGE_LENGTH} caractères par message)` } })
     }
     cleanMessages.push({ role: (m as ChatMessage).role, content: (m as ChatMessage).content })
   }
