@@ -181,19 +181,23 @@ function Section({
   count: number
   children: React.ReactNode
 }) {
+  const [open, setOpen] = useState(false)
   if (count === 0) return null
   return (
     <div className="mb-6">
-      <div className="flex items-center justify-between mb-3">
+      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between mb-3 tappable">
         <span className="flex items-center gap-1.5 font-extrabold text-[10px] tracking-widest uppercase" style={{ color }}>
           <span className="flex items-center justify-center rounded-lg" style={{ width: 24, height: 24, backgroundColor: `${color}1A`, border: `1px solid ${color}55` }}>
             {icon}
           </span>
           {label}
         </span>
-        <CountBadge n={count} color={color} />
-      </div>
-      {children}
+        <span className="flex items-center gap-2">
+          <CountBadge n={count} color={color} />
+          <ChevronDown size={16} color={color} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }} />
+        </span>
+      </button>
+      {open && children}
     </div>
   )
 }
