@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase, type DbPortfolioPosition } from '../lib/supabase'
+import { getCached, setCached } from '../lib/dataCache'
 
 export interface SimPosition extends DbPortfolioPosition {
   cours: number | null
@@ -15,8 +16,8 @@ async function currentUserId(): Promise<string | null> {
 // (brvm_cours), mêmes tickers que ceux suivis dans les alertes, capital
 // réellement débité/crédité et positions réellement persistées.
 export function usePortfolioSimulator() {
-  const [positions, setPositions] = useState<SimPosition[]>([])
-  const [loading, setLoading] = useState(true)
+  const [positions, setPositions] = useState<SimPosition[]>(() => getCached('portfolio_positions') ?? [])
+  const [loading, setLoading] = useState(() => getCached('portfolio_positions') === undefined)
   const channelId = useRef(`portfolio_rt_${Math.random().toString(36).slice(2)}`)
 
   const refetch = useCallback(async () => {
@@ -34,9 +35,9 @@ export function usePortfolioSimulator() {
       const { data: cours } = await supabase.from('brvm_cours').select('ticker, cours, variation_pct').in('ticker', tickers)
       for (const c of cours ?? []) coursByTicker.set(c.ticker, { cours: c.cours, variation_pct: c.variation_pct })
     }
-    setPositions(
-      rows.map((r) => ({ ...r, cours: coursByTicker.get(r.ticker)?.cours ?? null, variation_pct: coursByTicker.get(r.ticker)?.variation_pct ?? null }))
-    )
+    const resolved = rows.map((r) => ({ ...r, cours: coursByTicker.get(r.ticker)?.cours ?? null, variation_pct: coursByTicker.get(r.ticker)?.variation_pct ?? null }))
+    setPositions(resolved)
+    setCached('portfolio_positions', resolved)
     setLoading(false)
   }, [])
 

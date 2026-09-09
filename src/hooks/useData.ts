@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase, type DbAnalysis, type DbAlert, type DbRecommendation, type BrvmRow, type DbCompany, type DbHistoryPoint } from '../lib/supabase'
+import { getCached, setCached } from '../lib/dataCache'
 
 // ── Recherche d'entreprises (auto-suggestion admin) ─────────────────────────
 // Cherche par nom ou ticker dans `companies`, complète avec le cours en
@@ -136,11 +137,11 @@ export function useAlerts() {
 }
 
 export function useAnalyses() {
-  const [analyses, setAnalyses] = useState<DbAnalysis[]>([])
-  const [loading, setLoading] = useState(true)
+  const [analyses, setAnalyses] = useState<DbAnalysis[]>(() => getCached('analyses') ?? [])
+  const [loading, setLoading] = useState(() => getCached('analyses') === undefined)
   const [error, setError] = useState<string | null>(null)
   const channelId = useRef(`analyses_rt_${++channelCounter}`)
-  const loadedOnce = useRef(false)
+  const loadedOnce = useRef(getCached('analyses') !== undefined)
 
   const fetchAnalyses = useCallback(async (silent = false) => {
     if (!loadedOnce.current && !silent) setLoading(true)
@@ -148,6 +149,7 @@ export function useAnalyses() {
       const { data, error: err } = await supabase.from('analyses').select('*').eq('is_published', true).order('created_at', { ascending: false })
       if (err) throw err
       setAnalyses((data ?? []) as DbAnalysis[])
+      setCached('analyses', data ?? [])
       setError(null)
     } catch (err) {
       if (!loadedOnce.current) setError(err instanceof Error ? err.message : 'Erreur réseau')
@@ -211,11 +213,11 @@ export function useRecommendations() {
 }
 
 export function useBrvmMarket() {
-  const [rows, setRows] = useState<BrvmRow[]>([])
-  const [loading, setLoading] = useState(true)
+  const [rows, setRows] = useState<BrvmRow[]>(() => getCached('brvm_market') ?? [])
+  const [loading, setLoading] = useState(() => getCached('brvm_market') === undefined)
   const [error, setError] = useState<string | null>(null)
   const channelId = useRef(`brvm_rt_${++channelCounter}`)
-  const loadedOnce = useRef(false)
+  const loadedOnce = useRef(getCached('brvm_market') !== undefined)
 
   const fetchRows = useCallback(async (silent = false) => {
     if (!loadedOnce.current && !silent) setLoading(true)
@@ -226,6 +228,7 @@ export function useBrvmMarket() {
 
     if (!err) {
       setRows((data ?? []) as BrvmRow[])
+      setCached('brvm_market', data ?? [])
       setError(null)
       loadedOnce.current = true
       setLoading(false)
@@ -243,6 +246,7 @@ export function useBrvmMarket() {
       if (!loadedOnce.current) setError(fallback.error.message)
     } else {
       setRows((fallback.data ?? []) as BrvmRow[])
+      setCached('brvm_market', fallback.data ?? [])
       setError(null)
     }
     loadedOnce.current = true

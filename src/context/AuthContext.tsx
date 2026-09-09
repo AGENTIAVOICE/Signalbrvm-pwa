@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { getMyPlan } from '../lib/api'
 import { identifyOneSignalUser } from '../lib/onesignal'
+import { clearAllCache } from '../lib/dataCache'
 
 export type UserStatus = 'pending' | 'approved' | 'rejected' | 'admin' | 'unknown'
 
@@ -137,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       caches.delete('supabase-cache')
       caches.delete('backend-cache')
     }
+    clearAllCache()
   }
 
   return (

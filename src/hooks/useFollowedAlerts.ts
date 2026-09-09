@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase, type DbAlert } from '../lib/supabase'
+import { getCached, setCached } from '../lib/dataCache'
 
 export interface FollowedAlert {
   alert: DbAlert
@@ -19,11 +20,11 @@ async function currentUserId(): Promise<string | null> {
 // réellement ajoutées au suivi (bouton "Ajouter au suivi" / "Sauvegarder"),
 // enrichies du vrai cours du jour pour chaque valeur suivie.
 export function useFollowedAlerts() {
-  const [rows, setRows] = useState<FollowedAlert[]>([])
-  const [loading, setLoading] = useState(true)
+  const [rows, setRows] = useState<FollowedAlert[]>(() => getCached('followed_alerts') ?? [])
+  const [loading, setLoading] = useState(() => getCached('followed_alerts') === undefined)
 
-  const refetch = useCallback(async () => {
-    setLoading(true)
+  const refetch = useCallback(async (silent = false) => {
+    if (!silent) setLoading(getCached('followed_alerts') === undefined)
     const uid = await currentUserId()
     if (!uid) {
       setRows([])
@@ -49,16 +50,16 @@ export function useFollowedAlerts() {
       for (const c of cours ?? []) coursByTicker.set(c.ticker, { cours: c.cours, variation_pct: c.variation_pct })
     }
 
-    setRows(
-      list.map((r) => ({
-        alert: r.alert,
-        portfolio_status: r.portfolio_status,
-        trade_decision: r.trade_decision,
-        closed_at: r.closed_at,
-        cours: r.alert.ticker ? coursByTicker.get(r.alert.ticker)?.cours ?? null : null,
-        variation_pct: r.alert.ticker ? coursByTicker.get(r.alert.ticker)?.variation_pct ?? null : null,
-      }))
-    )
+    const resolved = list.map((r) => ({
+      alert: r.alert,
+      portfolio_status: r.portfolio_status,
+      trade_decision: r.trade_decision,
+      closed_at: r.closed_at,
+      cours: r.alert.ticker ? coursByTicker.get(r.alert.ticker)?.cours ?? null : null,
+      variation_pct: r.alert.ticker ? coursByTicker.get(r.alert.ticker)?.variation_pct ?? null : null,
+    }))
+    setRows(resolved)
+    setCached('followed_alerts', resolved)
     setLoading(false)
   }, [])
 
