@@ -11,6 +11,8 @@ interface Profile {
   status: UserStatus
   subscription_plan: string
   formation_access: boolean
+  plan_duration_months: number | null
+  plan_expires_at: string | null
 }
 
 interface AuthState {
@@ -50,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function loadProfile(email: string) {
     const { data } = await supabase
       .from('users')
-      .select('full_name, status, subscription_plan, formation_access')
+      .select('full_name, status, subscription_plan, formation_access, plan_duration_months, plan_expires_at')
       .eq('email', email)
       .single()
     if (data) setProfile(data as Profile)

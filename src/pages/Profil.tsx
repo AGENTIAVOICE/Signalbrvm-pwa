@@ -85,7 +85,18 @@ export default function Profil() {
             <span className="flex items-center gap-2 font-bold text-sm" style={{ color: planStyle.text }}>
               <Crown size={16} /> Plan {planStyle.label}
             </span>
-            <span className="text-textMuted text-xs">{planStyle.desc}</span>
+            <span className="text-textMuted text-xs">
+              {plan === 'pro'
+                ? (() => {
+                    const names: Record<number, string> = { 1: 'Découverte', 3: 'Croissance', 6: 'Performance', 12: 'Élite' }
+                    const name = profile?.plan_duration_months ? names[profile.plan_duration_months] : null
+                    const expires = profile?.plan_expires_at ? new Date(profile.plan_expires_at).toLocaleDateString('fr-FR') : null
+                    if (name && expires) return `Formule ${name} · expire le ${expires}`
+                    if (expires) return `Expire le ${expires}`
+                    return planStyle.desc
+                  })()
+                : planStyle.desc}
+            </span>
           </div>
           {plan !== 'pro' && (
             <button

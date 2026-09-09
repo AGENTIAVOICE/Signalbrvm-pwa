@@ -61,14 +61,20 @@ const SUPABASE_FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL as string}/f
 const LIST_FORMATION_ACCESS_URL = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/list-formation-access`
 const GRANT_FORMATION_ACCESS_URL = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/grant-formation-access`
 
-export async function listFormationAccess(): Promise<Record<string, boolean>> {
+export interface ExtraUserFields {
+  formation_access: boolean
+  plan_duration_months: number | null
+  plan_expires_at: string | null
+}
+
+export async function listFormationAccess(): Promise<Record<string, ExtraUserFields>> {
   const token = getAdminToken()
   if (!token) return {}
   try {
     const res = await fetch(LIST_FORMATION_ACCESS_URL, { headers: { Authorization: `Bearer ${token}` } })
-    const json: { data?: { id: string; formation_access: boolean }[] } = await res.json().catch(() => ({}))
+    const json: { data?: ({ id: string } & ExtraUserFields)[] } = await res.json().catch(() => ({}))
     if (!res.ok || !json.data) return {}
-    return Object.fromEntries(json.data.map((r) => [r.id, r.formation_access]))
+    return Object.fromEntries(json.data.map((r) => [r.id, { formation_access: r.formation_access, plan_duration_months: r.plan_duration_months, plan_expires_at: r.plan_expires_at }]))
   } catch {
     return {}
   }
@@ -86,6 +92,22 @@ export async function grantFormationAccess(userId: string, access: boolean): Pro
     if (!res.ok) console.error('grantFormationAccess: échec', res.status, await res.text().catch(() => ''))
   } catch (err) {
     console.error('grantFormationAccess: erreur réseau', err)
+  }
+}
+
+const SET_PLAN_DURATION_URL = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/set-plan-duration`
+export async function setPlanDuration(userId: string, durationMonths: 1 | 3 | 6 | 12 | null): Promise<void> {
+  const token = getAdminToken()
+  if (!token) return
+  try {
+    const res = await fetch(SET_PLAN_DURATION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ user_id: userId, duration_months: durationMonths }),
+    })
+    if (!res.ok) console.error('setPlanDuration: échec', res.status, await res.text().catch(() => ''))
+  } catch (err) {
+    console.error('setPlanDuration: erreur réseau', err)
   }
 }
 

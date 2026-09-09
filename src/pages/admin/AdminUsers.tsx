@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Users, Search, Shield, Crown, UserCheck, CheckCircle2, XCircle, Trash2, ChevronDown, GraduationCap } from 'lucide-react'
-import { adminApi, listFormationAccess, grantFormationAccess, type AdminUser } from '../../lib/adminApi'
+import { adminApi, listFormationAccess, grantFormationAccess, setPlanDuration, type AdminUser, type ExtraUserFields } from '../../lib/adminApi'
 import { ScreenHeader } from '../../components/admin/AdminUI'
+
+const PLAN_NAMES: Record<number, string> = {
+  1: 'Découverte (1 mois)',
+  3: 'Croissance (3 mois)',
+  6: 'Performance (6 mois)',
+  12: 'Élite (12 mois)',
+}
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<AdminUser[]>([])
-  const [formationAccess, setFormationAccess] = useState<Record<string, boolean>>({})
+  const [extraFields, setExtraFields] = useState<Record<string, ExtraUserFields>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [adminQuery, setAdminQuery] = useState('')
@@ -18,7 +25,7 @@ export default function AdminUsers() {
   async function load(silent = false) {
     if (!loadedOnce.current && !silent) setLoading(true)
     try {
-      const [data] = await Promise.all([adminApi.get<AdminUser[]>('/users'), listFormationAccess().then(setFormationAccess)])
+      const [data] = await Promise.all([adminApi.get<AdminUser[]>('/users'), listFormationAccess().then(setExtraFields)])
       setUsers(data)
       setError('')
     } catch (err) {
@@ -55,13 +62,25 @@ export default function AdminUsers() {
   }
 
   async function toggleFormationAccess(id: string, access: boolean) {
-    setFormationAccess((prev) => ({ ...prev, [id]: access }))
+    setExtraFields((prev) => ({ ...prev, [id]: { ...(prev[id] ?? { plan_duration_months: null, plan_expires_at: null }), formation_access: access } }))
     try {
       await grantFormationAccess(id, access)
     } catch (err) {
-      setFormationAccess((prev) => ({ ...prev, [id]: !access }))
+      setExtraFields((prev) => ({ ...prev, [id]: { ...(prev[id] ?? { plan_duration_months: null, plan_expires_at: null }), formation_access: !access } }))
       alert(err instanceof Error ? err.message : 'Erreur lors de la mise à jour')
     }
+  }
+
+  async function activatePlan(id: string, months: 1 | 3 | 6 | 12) {
+    setPlan(id, 'pro')
+    await setPlanDuration(id, months)
+    load(true)
+  }
+
+  async function deactivatePlan(id: string) {
+    setPlan(id, 'free')
+    await setPlanDuration(id, null)
+    load(true)
   }
 
   async function removeUser(id: string) {
@@ -131,13 +150,13 @@ export default function AdminUsers() {
 
       <Section icon={<Crown size={16} color="#22C55E" />} label="Clients Pro" color="#22C55E" count={proClients.length}>
         {proClients.map((u) => (
-          <ClientCard key={u.id} user={u} hasFormationAccess={!!formationAccess[u.id]} onSetStatus={setStatus} onSetPlan={setPlan} onToggleFormation={toggleFormationAccess} onRemove={removeUser} />
+          <ClientCard key={u.id} user={u} extra={extraFields[u.id]} onSetStatus={setStatus} onActivatePlan={activatePlan} onDeactivatePlan={deactivatePlan} onToggleFormation={toggleFormationAccess} onRemove={removeUser} />
         ))}
       </Section>
 
       <Section icon={<UserCheck size={16} color="#94A3B8" />} label="Clients Gratuits" color="#94A3B8" count={freeClients.length}>
         {freeClients.map((u) => (
-          <ClientCard key={u.id} user={u} hasFormationAccess={!!formationAccess[u.id]} onSetStatus={setStatus} onSetPlan={setPlan} onToggleFormation={toggleFormationAccess} onRemove={removeUser} />
+          <ClientCard key={u.id} user={u} extra={extraFields[u.id]} onSetStatus={setStatus} onActivatePlan={activatePlan} onDeactivatePlan={deactivatePlan} onToggleFormation={toggleFormationAccess} onRemove={removeUser} />
         ))}
       </Section>
     </div>
@@ -232,21 +251,26 @@ function UserIdentity({ user }: { user: AdminUser }) {
 
 function ClientCard({
   user,
-  hasFormationAccess,
+  extra,
   onSetStatus,
-  onSetPlan,
+  onActivatePlan,
+  onDeactivatePlan,
   onToggleFormation,
   onRemove,
 }: {
   user: AdminUser
-  hasFormationAccess: boolean
+  extra?: ExtraUserFields
   onSetStatus: (id: string, status: AdminUser['status']) => void
-  onSetPlan: (id: string, plan: 'free' | 'pro') => void
+  onActivatePlan: (id: string, months: 1 | 3 | 6 | 12) => void
+  onDeactivatePlan: (id: string) => void
   onToggleFormation: (id: string, access: boolean) => void
   onRemove: (id: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const isPro = String(user.subscription_plan).toLowerCase() === 'pro'
+  const hasFormationAccess = !!extra?.formation_access
+  const expiresAt = extra?.plan_expires_at ? new Date(extra.plan_expires_at) : null
+  const planLabel = extra?.plan_duration_months ? PLAN_NAMES[extra.plan_duration_months] : null
   const statusLabel = ({ approved: 'APPROUVÉ', pending: 'EN ATTENTE', rejected: 'REFUSÉ', admin: 'ADMIN' } as Record<string, string>)[user.status] ?? user.status.toUpperCase()
   const statusColor = ({ approved: '#22C55E', pending: '#F5C842', rejected: '#EF4444', admin: '#A78BFA' } as Record<string, string>)[user.status] ?? '#8A8A9A'
 
@@ -260,7 +284,7 @@ function ClientCard({
           <ChevronDown size={16} color="#8A8A9A" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 200ms', flexShrink: 0 }} />
         </div>
 
-        <div className="flex items-center gap-2 mt-3">
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
           <span className="rounded-md px-2 py-0.5 text-[9px] font-extrabold tracking-wider" style={{ backgroundColor: `${statusColor}1A`, border: `1px solid ${statusColor}`, color: statusColor }}>
             {statusLabel}
           </span>
@@ -268,7 +292,7 @@ function ClientCard({
             className="rounded-md px-2 py-0.5 text-[9px] font-extrabold tracking-wider"
             style={{ backgroundColor: isPro ? '#052E16' : '#1A1A24', border: `1px solid ${isPro ? '#166534' : '#3A3A4A'}`, color: isPro ? '#22C55E' : '#8A8A9A' }}
           >
-            {isPro ? 'PRO' : 'FREE'}
+            {isPro ? planLabel ?? 'PRO' : 'FREE'}
           </span>
           {hasFormationAccess && (
             <span
@@ -284,20 +308,37 @@ function ClientCard({
       {open && (
         <div className="mt-3">
           {isPro ? (
-            <div
-              className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 mb-2.5 font-bold text-xs"
-              style={{ backgroundColor: '#052E16', border: '1px solid #166534', color: '#22C55E' }}
-            >
-              <Crown size={14} /> Plan Pro actif
+            <div className="rounded-xl p-3 mb-2.5" style={{ backgroundColor: '#052E16', border: '1px solid #166534' }}>
+              <p className="flex items-center gap-1.5 font-bold text-xs mb-1" style={{ color: '#22C55E' }}>
+                <Crown size={14} /> Formule {planLabel ?? ''} active
+              </p>
+              {expiresAt && <p className="text-[11px]" style={{ color: '#8AD8A8' }}>Expire le {expiresAt.toLocaleDateString('fr-FR')}</p>}
+              <button
+                onClick={() => onDeactivatePlan(user.id)}
+                className="w-full mt-2 py-2 rounded-lg text-[11px] font-bold"
+                style={{ backgroundColor: '#200A0A', border: '1px solid #7F1D1D', color: '#EF4444' }}
+              >
+                Repasser en Gratuit maintenant
+              </button>
             </div>
           ) : (
-            <button
-              onClick={() => onSetPlan(user.id, 'pro')}
-              className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 mb-2.5 font-bold text-xs"
-              style={{ backgroundColor: '#1A1400', border: '1px solid #D4A82E', color: '#F5C842' }}
-            >
-              <Crown size={14} /> Activer plan Pro
-            </button>
+            <div className="rounded-xl p-3 mb-2.5" style={{ backgroundColor: '#1A1400', border: '1px solid #D4A82E' }}>
+              <p className="flex items-center gap-1.5 font-bold text-xs mb-2" style={{ color: '#F5C842' }}>
+                <Crown size={14} /> Activer une formule payante
+              </p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {([1, 3, 6, 12] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => onActivatePlan(user.id, m)}
+                    className="rounded-lg py-2 text-[11px] font-bold"
+                    style={{ backgroundColor: '#0A0A0F', border: '1px solid #3A3A4A', color: '#F5C842' }}
+                  >
+                    {PLAN_NAMES[m]}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           <button
