@@ -41,8 +41,9 @@ export async function searchCompanies(query: string): Promise<CompanySuggestion[
 
 // ── Historique de prix réel + RSI(14) ───────────────────────────────────────
 export function useStockHistory(ticker: string | null) {
-  const [history, setHistory] = useState<DbHistoryPoint[]>([])
-  const [loading, setLoading] = useState(true)
+  const cacheKey = ticker ? `stock_history_${ticker}` : null
+  const [history, setHistory] = useState<DbHistoryPoint[]>(() => (cacheKey ? getCached(cacheKey) ?? [] : []))
+  const [loading, setLoading] = useState(() => (cacheKey ? getCached(cacheKey) === undefined : true))
 
   useEffect(() => {
     if (!ticker) {
@@ -51,7 +52,7 @@ export function useStockHistory(ticker: string | null) {
       return
     }
     let cancelled = false
-    setLoading(true)
+    if (getCached(`stock_history_${ticker}`) === undefined) setLoading(true)
     supabase
       .from('brvm_history')
       .select('ticker, day, cours, variation_pct')
@@ -60,6 +61,7 @@ export function useStockHistory(ticker: string | null) {
       .then(({ data }) => {
         if (!cancelled) {
           setHistory((data ?? []) as DbHistoryPoint[])
+          setCached(`stock_history_${ticker}`, (data ?? []) as DbHistoryPoint[])
           setLoading(false)
         }
       })

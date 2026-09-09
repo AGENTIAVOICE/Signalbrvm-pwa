@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { getCached, setCached } from '../lib/dataCache'
 
 async function currentUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getSession()
@@ -36,8 +37,9 @@ export function useAnalysisReadCount() {
 export function useReadIds(kind: 'alert' | 'analysis') {
   const table = kind === 'alert' ? 'user_alert_reads' : 'user_analysis_reads'
   const column = kind === 'alert' ? 'alert_id' : 'analysis_id'
-  const [ids, setIds] = useState<Set<string>>(new Set())
-  const [loaded, setLoaded] = useState(false)
+  const cacheKey = `read_ids_${kind}`
+  const [ids, setIds] = useState<Set<string>>(() => new Set(getCached<string[]>(cacheKey) ?? []))
+  const [loaded, setLoaded] = useState(() => getCached(cacheKey) !== undefined)
 
   const refresh = useCallback(async () => {
     const uid = await currentUserId()
@@ -47,12 +49,14 @@ export function useReadIds(kind: 'alert' | 'analysis') {
     }
     try {
       const { data } = await supabase.from(table).select(column).eq('user_id', uid)
-      setIds(new Set((data ?? []).map((r: Record<string, string>) => r[column])))
+      const list = (data ?? []).map((r: Record<string, string>) => r[column])
+      setIds(new Set(list))
+      setCached(cacheKey, list)
     } catch {
       setIds(new Set())
     }
     setLoaded(true)
-  }, [table, column])
+  }, [table, column, cacheKey])
 
   useEffect(() => {
     refresh()
@@ -150,9 +154,11 @@ export async function recordAppOpenOnce() {
 // utilisateur et par alerte (au lieu d'un simple état local qui se
 // réinitialisait à chaque rechargement de page).
 export function useAlertAction(alertId: string | null) {
-  const [saved, setSaved] = useState(false)
-  const [notify, setNotify] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const cacheKey = alertId ? `alert_action_${alertId}` : null
+  const cached = cacheKey ? getCached<{ saved: boolean; notify: boolean }>(cacheKey) : undefined
+  const [saved, setSaved] = useState(cached?.saved ?? false)
+  const [notify, setNotify] = useState(cached?.notify ?? false)
+  const [loading, setLoading] = useState(cached === undefined)
 
   useEffect(() => {
     if (!alertId) {
@@ -173,8 +179,11 @@ export function useAlertAction(alertId: string | null) {
         .eq('alert_id', alertId)
         .maybeSingle()
       if (!cancelled) {
-        setSaved(data?.saved ?? false)
-        setNotify(data?.notify ?? false)
+        const s = data?.saved ?? false
+        const n = data?.notify ?? false
+        setSaved(s)
+        setNotify(n)
+        setCached(`alert_action_${alertId}`, { saved: s, notify: n })
         setLoading(false)
       }
     })()
@@ -189,6 +198,7 @@ export function useAlertAction(alertId: string | null) {
     if (!uid) return
     const next = !saved
     setSaved(next)
+    setCached(`alert_action_${alertId}`, { saved: next, notify })
     try {
       // Suivre une alerte l'ajoute directement comme position suivie — plus
       // besoin de l'étape "À valider" séparée.
@@ -206,6 +216,7 @@ export function useAlertAction(alertId: string | null) {
     if (!uid) return
     const next = !notify
     setNotify(next)
+    setCached(`alert_action_${alertId}`, { saved, notify: next })
     try {
       await supabase.from('user_alert_actions').upsert({ user_id: uid, alert_id: alertId, notify: next }, { onConflict: 'user_id,alert_id' })
     } catch {

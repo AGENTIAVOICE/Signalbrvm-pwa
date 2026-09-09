@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { getCached, setCached } from '../lib/dataCache'
 
 export interface DbNotification {
   id: string
@@ -19,8 +20,8 @@ async function currentUserId(): Promise<string | null> {
 // Vraies notifications de franchissement de cours limite, déclenchées côté
 // base par check_price_target_notifications() — pas une liste statique.
 export function useNotifications() {
-  const [notifications, setNotifications] = useState<DbNotification[]>([])
-  const [loading, setLoading] = useState(true)
+  const [notifications, setNotifications] = useState<DbNotification[]>(() => getCached('notifications') ?? [])
+  const [loading, setLoading] = useState(() => getCached('notifications') === undefined)
   const channelId = useRef(`notifications_rt_${Math.random().toString(36).slice(2)}`)
 
   const refetch = useCallback(async () => {
@@ -37,6 +38,7 @@ export function useNotifications() {
       .order('created_at', { ascending: false })
       .limit(50)
     setNotifications((data ?? []) as DbNotification[])
+    setCached('notifications', (data ?? []) as DbNotification[])
     setLoading(false)
   }, [])
 

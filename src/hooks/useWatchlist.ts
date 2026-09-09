@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { getCached, setCached } from '../lib/dataCache'
 
 export interface WatchedMarket {
   ticker: string
@@ -15,8 +16,8 @@ async function currentUserId(): Promise<string | null> {
 }
 
 export function useWatchlist() {
-  const [watched, setWatched] = useState<WatchedMarket[]>([])
-  const [loading, setLoading] = useState(true)
+  const [watched, setWatched] = useState<WatchedMarket[]>(() => getCached('watchlist') ?? [])
+  const [loading, setLoading] = useState(() => getCached('watchlist') === undefined)
 
   const refetch = useCallback(async () => {
     const uid = await currentUserId()
@@ -29,6 +30,7 @@ export function useWatchlist() {
     const tickers = (rows ?? []).map((r) => r.ticker)
     if (tickers.length === 0) {
       setWatched([])
+      setCached('watchlist', [])
       setLoading(false)
       return
     }
@@ -37,15 +39,15 @@ export function useWatchlist() {
       supabase.from('brvm_cours').select('ticker, cours, variation_pct').in('ticker', tickers),
     ])
     const coursByTicker = new Map((cours ?? []).map((c) => [c.ticker, c]))
-    setWatched(
-      (companies ?? []).map((c) => ({
-        ticker: c.ticker,
-        full_name: c.full_name,
-        sector: c.sector,
-        cours: coursByTicker.get(c.ticker)?.cours ?? null,
-        variation_pct: coursByTicker.get(c.ticker)?.variation_pct ?? null,
-      }))
-    )
+    const resolved = (companies ?? []).map((c) => ({
+      ticker: c.ticker,
+      full_name: c.full_name,
+      sector: c.sector,
+      cours: coursByTicker.get(c.ticker)?.cours ?? null,
+      variation_pct: coursByTicker.get(c.ticker)?.variation_pct ?? null,
+    }))
+    setWatched(resolved)
+    setCached('watchlist', resolved)
     setLoading(false)
   }, [])
 
