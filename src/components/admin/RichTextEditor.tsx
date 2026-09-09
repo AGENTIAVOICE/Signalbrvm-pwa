@@ -40,22 +40,28 @@ export function RichTextEditor({ value, onChange, placeholder }: { value: string
     fileInputRef.current?.click()
   }
 
-  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const next = e.target.value
-    const cursor = e.target.selectionStart
-    // Déclencheur "//" : dès que ces deux caractères viennent d'être tapés
-    // juste avant le curseur, on les retire immédiatement et on ouvre le
-    // sélecteur d'image — comme un raccourci, ils ne restent jamais dans le texte.
-    if (cursor >= 2 && next.slice(cursor - 2, cursor) === '//') {
-      const withoutTrigger = next.slice(0, cursor - 2) + next.slice(cursor)
+  // Déclencheur "//" implémenté au niveau de la touche pressée (keydown),
+  // pas de la mise à jour de valeur (onChange) : c'est plus fiable, car on
+  // intercepte la frappe AVANT qu'elle ne modifie le texte (preventDefault),
+  // au lieu de deviner après coup ce qui vient d'être tapé — indépendant du
+  // clavier, du navigateur, ou d'un éventuel correcteur automatique.
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key !== '/') return
+    const el = e.currentTarget
+    const cursor = el.selectionStart
+    if (el.selectionEnd !== cursor) return // pas de sélection active
+    const previousChar = value.slice(cursor - 1, cursor)
+    if (previousChar === '/') {
+      e.preventDefault()
+      // On retire le "/" déjà présent (le second ne sera jamais tapé grâce
+      // au preventDefault) pour qu'aucun des deux ne reste dans le texte.
+      const withoutTrigger = value.slice(0, cursor - 1) + value.slice(cursor)
       onChange(withoutTrigger)
       requestAnimationFrame(() => {
-        textareaRef.current?.setSelectionRange(cursor - 2, cursor - 2)
+        el.setSelectionRange(cursor - 1, cursor - 1)
       })
-      openImagePicker(cursor - 2)
-      return
+      openImagePicker(cursor - 1)
     }
-    onChange(next)
   }
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -124,7 +130,8 @@ export function RichTextEditor({ value, onChange, placeholder }: { value: string
       <textarea
         ref={textareaRef}
         value={value}
-        onChange={handleChange}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         rows={8}
         className="w-full rounded-xl px-3.5 py-3 text-sm text-white outline-none resize-none"
@@ -133,7 +140,8 @@ export function RichTextEditor({ value, onChange, placeholder }: { value: string
       {error && <p className="text-sell text-[11px] mt-1">{error}</p>}
       <p className="text-textMuted text-[10px] mt-1.5">
         Sélectionnez du texte puis cliquez sur Gras ou une couleur pour le mettre en valeur. Tapez{' '}
-        <span className="font-bold text-white">//</span> n'importe où pour insérer une image depuis votre galerie.
+        <span className="font-bold text-white">//</span> n'importe où pour insérer une image depuis votre galerie
+        (ou utilisez le bouton dédié).
       </p>
     </div>
   )
