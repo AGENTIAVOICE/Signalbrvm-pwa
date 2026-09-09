@@ -4,6 +4,7 @@ import { ArrowLeft, Building2, Sparkles, AlertTriangle, X } from 'lucide-react'
 import { supabase, type DbCompany } from '../lib/supabase'
 import { useStockHistory, computeRSI } from '../hooks/useData'
 import { getMarketAnalysis } from '../lib/api'
+import { getCached, setCached } from '../lib/dataCache'
 import { formatPrice, formatRelativeTime } from '../lib/theme'
 import { useAuth } from '../context/AuthContext'
 import { useProfilInvestisseur } from '../hooks/useProfilInvestisseur'
@@ -39,9 +40,10 @@ export default function MarcheDetail() {
   const [companyName, setCompanyName] = useState<string>('')
   const { history } = useStockHistory(ticker ?? null)
 
-  const [analysis, setAnalysis] = useState<string | null>(null)
-  const [analysisGeneratedAt, setAnalysisGeneratedAt] = useState<string | null>(null)
-  const [analysisLoading, setAnalysisLoading] = useState(true)
+  const cachedAnalysis = ticker ? getCached<{ analysis: string | null; generatedAt: string | null }>(`market_analysis_${ticker}`) : undefined
+  const [analysis, setAnalysis] = useState<string | null>(cachedAnalysis?.analysis ?? null)
+  const [analysisGeneratedAt, setAnalysisGeneratedAt] = useState<string | null>(cachedAnalysis?.generatedAt ?? null)
+  const [analysisLoading, setAnalysisLoading] = useState(cachedAnalysis === undefined)
   const [analysisError, setAnalysisError] = useState('')
 
   useEffect(() => {
@@ -77,7 +79,7 @@ export default function MarcheDetail() {
   useEffect(() => {
     if (!ticker) return
     let cancelled = false
-    setAnalysisLoading(true)
+    if (getCached(`market_analysis_${ticker}`) === undefined) setAnalysisLoading(true)
     setAnalysisError('')
 
     supabase
@@ -90,6 +92,7 @@ export default function MarcheDetail() {
         if (cached?.analysis) {
           setAnalysis(cached.analysis)
           setAnalysisGeneratedAt(cached.generated_at)
+          setCached(`market_analysis_${ticker}`, { analysis: cached.analysis, generatedAt: cached.generated_at })
           setAnalysisLoading(false)
           return
         }

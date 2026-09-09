@@ -5,6 +5,7 @@ import { supabase, type DbAlert, type DbCompany } from '../lib/supabase'
 import { useStockHistory, computeRSI } from '../hooks/useData'
 import { formatPrice } from '../lib/theme'
 import { markAlertRead, useAlertAction } from '../hooks/useProfileStats'
+import { getCached, setCached } from '../lib/dataCache'
 import { useAuth } from '../context/AuthContext'
 import { ProTeaser } from '../components/ProTeaser'
 
@@ -136,17 +137,18 @@ export default function AlertDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { isPro } = useAuth()
-  const [alert, setAlert] = useState<DbAlert | null>(null)
-  const [company, setCompany] = useState<DbCompany | null>(null)
-  const [resolvedTicker, setResolvedTicker] = useState<string | null>(null)
-  const [currentPrice, setCurrentPrice] = useState<number | null>(null)
-  const [dayChange, setDayChange] = useState<number | null>(null)
-  const [loading, setLoading] = useState(true)
+  const cachedDetail = id ? getCached<{ alert: DbAlert; company: DbCompany | null; resolvedTicker: string | null; currentPrice: number | null; dayChange: number | null }>(`alert_detail_${id}`) : undefined
+  const [alert, setAlert] = useState<DbAlert | null>(cachedDetail?.alert ?? null)
+  const [company, setCompany] = useState<DbCompany | null>(cachedDetail?.company ?? null)
+  const [resolvedTicker, setResolvedTicker] = useState<string | null>(cachedDetail?.resolvedTicker ?? null)
+  const [currentPrice, setCurrentPrice] = useState<number | null>(cachedDetail?.currentPrice ?? null)
+  const [dayChange, setDayChange] = useState<number | null>(cachedDetail?.dayChange ?? null)
+  const [loading, setLoading] = useState(cachedDetail === undefined)
 
   useEffect(() => {
     if (!id) return
     let cancelled = false
-    setLoading(true)
+    if (getCached(`alert_detail_${id}`) === undefined) setLoading(true)
     supabase
       .from('alerts')
       .select('*')
@@ -172,18 +174,23 @@ export default function AlertDetail() {
           ticker = match?.ticker ?? null
         }
 
+        let comp: DbCompany | null = null
+        let cours: { cours: number | null; variation_pct: number | null } | null = null
         if (ticker) {
-          const [{ data: comp }, { data: cours }] = await Promise.all([
+          const [{ data: c }, { data: co }] = await Promise.all([
             supabase.from('companies').select('*').eq('ticker', ticker).maybeSingle(),
             supabase.from('brvm_cours').select('cours, variation_pct').eq('ticker', ticker).maybeSingle(),
           ])
+          comp = (c as DbCompany) ?? null
+          cours = co ?? null
           if (!cancelled) {
             setResolvedTicker(ticker)
-            setCompany((comp as DbCompany) ?? null)
+            setCompany(comp)
             setCurrentPrice(cours?.cours ?? null)
             setDayChange(cours?.variation_pct ?? null)
           }
         }
+        setCached(`alert_detail_${id}`, { alert: a, company: comp, resolvedTicker: ticker, currentPrice: cours?.cours ?? null, dayChange: cours?.variation_pct ?? null })
         if (!cancelled) setLoading(false)
       })
     return () => {
