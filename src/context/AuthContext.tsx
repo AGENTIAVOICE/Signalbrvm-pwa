@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import { getMyPlan } from '../lib/api'
 import { identifyOneSignalUser } from '../lib/onesignal'
 import { clearAllCache } from '../lib/dataCache'
 
@@ -56,16 +55,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('full_name, status, subscription_plan, formation_access, plan_duration_months, plan_expires_at')
       .eq('email', email)
       .single()
-    if (data) setProfile(data as Profile)
+    if (data) {
+      setProfile(data as Profile)
+      // Supabase (public.users.subscription_plan) est l'unique source de
+      // vérité du plan — c'est là que passent Chariow, l'admin et
+      // l'expiration automatique. Un ancien backend externe séparé donnait
+      // parfois une réponse différente (jamais informé d'un paiement
+      // Chariow), ce qui provoquait un plan qui clignotait entre Pro et
+      // Gratuit selon lequel des deux répondait en dernier.
+      applyPlan(String(data.subscription_plan ?? '').toLowerCase() === 'pro' ? 'pro' : 'free')
+    }
   }
 
   async function refreshPlan() {
-    try {
-      const res = await getMyPlan()
-      applyPlan(res.plan)
-    } catch {
-      applyPlan('free')
-    }
+    const email = session?.user.email
+    if (email) await loadProfile(email)
   }
 
   useEffect(() => {
@@ -73,7 +77,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(data.session)
       if (data.session?.user.email) await loadProfile(data.session.user.email)
       if (data.session?.user.id) identifyOneSignalUser(data.session.user.id)
-      await refreshPlan()
       hasLoadedOnce.current = true
       setLoading(false)
     })
@@ -83,7 +86,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (newSession?.user.email) {
         await loadProfile(newSession.user.email)
         if (newSession.user.id) identifyOneSignalUser(newSession.user.id)
-        await refreshPlan()
       } else {
         setProfile(null)
         previousPlan.current = null
