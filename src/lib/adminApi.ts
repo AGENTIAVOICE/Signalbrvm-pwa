@@ -54,6 +54,41 @@ export const adminApi = {
 // donc les appelants doivent l'utiliser sans faire échouer le flux principal.
 const SUPABASE_FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/link-alert-stock`
 
+// Le backend externe ne connaît pas la colonne formation_access (produit
+// payant séparé, ajouté directement dans Supabase) — ces deux fonctions
+// passent par des fonctions Supabase dédiées, avec la même vérification du
+// token admin que les autres contournements ci-dessus.
+const LIST_FORMATION_ACCESS_URL = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/list-formation-access`
+const GRANT_FORMATION_ACCESS_URL = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/grant-formation-access`
+
+export async function listFormationAccess(): Promise<Record<string, boolean>> {
+  const token = getAdminToken()
+  if (!token) return {}
+  try {
+    const res = await fetch(LIST_FORMATION_ACCESS_URL, { headers: { Authorization: `Bearer ${token}` } })
+    const json: { data?: { id: string; formation_access: boolean }[] } = await res.json().catch(() => ({}))
+    if (!res.ok || !json.data) return {}
+    return Object.fromEntries(json.data.map((r) => [r.id, r.formation_access]))
+  } catch {
+    return {}
+  }
+}
+
+export async function grantFormationAccess(userId: string, access: boolean): Promise<void> {
+  const token = getAdminToken()
+  if (!token) return
+  try {
+    const res = await fetch(GRANT_FORMATION_ACCESS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ user_id: userId, access }),
+    })
+    if (!res.ok) console.error('grantFormationAccess: échec', res.status, await res.text().catch(() => ''))
+  } catch (err) {
+    console.error('grantFormationAccess: erreur réseau', err)
+  }
+}
+
 export async function linkAlertStock(
   alertId: string,
   fields: { ticker: string | null; sector: string | null; objectif_1: number | null; objectif_2: number | null; stop_loss: number | null }

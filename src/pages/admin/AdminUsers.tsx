@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Users, Search, Shield, Crown, UserCheck, CheckCircle2, XCircle, Trash2, ChevronDown } from 'lucide-react'
-import { adminApi, type AdminUser } from '../../lib/adminApi'
+import { Users, Search, Shield, Crown, UserCheck, CheckCircle2, XCircle, Trash2, ChevronDown, GraduationCap } from 'lucide-react'
+import { adminApi, listFormationAccess, grantFormationAccess, type AdminUser } from '../../lib/adminApi'
 import { ScreenHeader } from '../../components/admin/AdminUI'
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<AdminUser[]>([])
+  const [formationAccess, setFormationAccess] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [adminQuery, setAdminQuery] = useState('')
@@ -17,7 +18,7 @@ export default function AdminUsers() {
   async function load(silent = false) {
     if (!loadedOnce.current && !silent) setLoading(true)
     try {
-      const data = await adminApi.get<AdminUser[]>('/users')
+      const [data] = await Promise.all([adminApi.get<AdminUser[]>('/users'), listFormationAccess().then(setFormationAccess)])
       setUsers(data)
       setError('')
     } catch (err) {
@@ -49,6 +50,16 @@ export default function AdminUsers() {
       load(true)
     } catch (err) {
       load(true)
+      alert(err instanceof Error ? err.message : 'Erreur lors de la mise à jour')
+    }
+  }
+
+  async function toggleFormationAccess(id: string, access: boolean) {
+    setFormationAccess((prev) => ({ ...prev, [id]: access }))
+    try {
+      await grantFormationAccess(id, access)
+    } catch (err) {
+      setFormationAccess((prev) => ({ ...prev, [id]: !access }))
       alert(err instanceof Error ? err.message : 'Erreur lors de la mise à jour')
     }
   }
@@ -120,13 +131,13 @@ export default function AdminUsers() {
 
       <Section icon={<Crown size={16} color="#22C55E" />} label="Clients Pro" color="#22C55E" count={proClients.length}>
         {proClients.map((u) => (
-          <ClientCard key={u.id} user={u} onSetStatus={setStatus} onSetPlan={setPlan} onRemove={removeUser} />
+          <ClientCard key={u.id} user={u} hasFormationAccess={!!formationAccess[u.id]} onSetStatus={setStatus} onSetPlan={setPlan} onToggleFormation={toggleFormationAccess} onRemove={removeUser} />
         ))}
       </Section>
 
       <Section icon={<UserCheck size={16} color="#94A3B8" />} label="Clients Gratuits" color="#94A3B8" count={freeClients.length}>
         {freeClients.map((u) => (
-          <ClientCard key={u.id} user={u} onSetStatus={setStatus} onSetPlan={setPlan} onRemove={removeUser} />
+          <ClientCard key={u.id} user={u} hasFormationAccess={!!formationAccess[u.id]} onSetStatus={setStatus} onSetPlan={setPlan} onToggleFormation={toggleFormationAccess} onRemove={removeUser} />
         ))}
       </Section>
     </div>
@@ -221,13 +232,17 @@ function UserIdentity({ user }: { user: AdminUser }) {
 
 function ClientCard({
   user,
+  hasFormationAccess,
   onSetStatus,
   onSetPlan,
+  onToggleFormation,
   onRemove,
 }: {
   user: AdminUser
+  hasFormationAccess: boolean
   onSetStatus: (id: string, status: AdminUser['status']) => void
   onSetPlan: (id: string, plan: 'free' | 'pro') => void
+  onToggleFormation: (id: string, access: boolean) => void
   onRemove: (id: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -255,6 +270,14 @@ function ClientCard({
           >
             {isPro ? 'PRO' : 'FREE'}
           </span>
+          {hasFormationAccess && (
+            <span
+              className="rounded-md px-2 py-0.5 text-[9px] font-extrabold tracking-wider"
+              style={{ backgroundColor: '#1A0F2E', border: '1px solid #6D28D9', color: '#A78BFA' }}
+            >
+              FORMATION
+            </span>
+          )}
         </div>
       </button>
 
@@ -276,6 +299,18 @@ function ClientCard({
               <Crown size={14} /> Activer plan Pro
             </button>
           )}
+
+          <button
+            onClick={() => onToggleFormation(user.id, !hasFormationAccess)}
+            className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 mb-2.5 font-bold text-xs"
+            style={
+              hasFormationAccess
+                ? { backgroundColor: '#1A0F2E', border: '1px solid #6D28D9', color: '#A78BFA' }
+                : { backgroundColor: '#111118', border: '1px solid #2A2A3A', color: '#8A8A9A' }
+            }
+          >
+            <GraduationCap size={14} /> {hasFormationAccess ? 'Accès formation actif (produit payant séparé)' : 'Activer l\u2019accès formation (après paiement Chariow)'}
+          </button>
 
           <div className="flex items-center gap-2 mb-2">
             <button

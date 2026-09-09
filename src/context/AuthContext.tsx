@@ -10,6 +10,7 @@ interface Profile {
   full_name: string | null
   status: UserStatus
   subscription_plan: string
+  formation_access: boolean
 }
 
 interface AuthState {
@@ -17,6 +18,7 @@ interface AuthState {
   profile: Profile | null
   plan: 'free' | 'pro'
   isPro: boolean
+  hasFormationAccess: boolean
   loading: boolean
   justUpgradedToPro: boolean
   dismissUpgradeNotice: () => void
@@ -48,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function loadProfile(email: string) {
     const { data } = await supabase
       .from('users')
-      .select('full_name, status, subscription_plan')
+      .select('full_name, status, subscription_plan, formation_access')
       .eq('email', email)
       .single()
     if (data) setProfile(data as Profile)
@@ -142,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         plan,
         isPro: plan === 'pro',
+        hasFormationAccess: profile?.formation_access ?? false,
         loading,
         justUpgradedToPro,
         dismissUpgradeNotice,
