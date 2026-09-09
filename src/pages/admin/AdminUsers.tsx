@@ -270,6 +270,7 @@ function ClientCard({
   const isPro = String(user.subscription_plan).toLowerCase() === 'pro'
   const hasFormationAccess = !!extra?.formation_access
   const expiresAt = extra?.plan_expires_at ? new Date(extra.plan_expires_at) : null
+  const startedAt = extra?.plan_started_at ? new Date(extra.plan_started_at) : null
   const planLabel = extra?.plan_duration_months ? PLAN_NAMES[extra.plan_duration_months] : null
   const statusLabel = ({ approved: 'APPROUVÉ', pending: 'EN ATTENTE', rejected: 'REFUSÉ', admin: 'ADMIN' } as Record<string, string>)[user.status] ?? user.status.toUpperCase()
   const statusColor = ({ approved: '#22C55E', pending: '#F5C842', rejected: '#EF4444', admin: '#A78BFA' } as Record<string, string>)[user.status] ?? '#8A8A9A'
@@ -312,7 +313,12 @@ function ClientCard({
               <p className="flex items-center gap-1.5 font-bold text-xs mb-1" style={{ color: '#22C55E' }}>
                 <Crown size={14} /> Formule {planLabel ?? ''} active
               </p>
-              {expiresAt && <p className="text-[11px]" style={{ color: '#8AD8A8' }}>Expire le {expiresAt.toLocaleDateString('fr-FR')}</p>}
+              {startedAt && expiresAt && (
+                <p className="text-[11px]" style={{ color: '#8AD8A8' }}>
+                  Du {startedAt.toLocaleDateString('fr-FR')} au {expiresAt.toLocaleDateString('fr-FR')}
+                </p>
+              )}
+              {!startedAt && expiresAt && <p className="text-[11px]" style={{ color: '#8AD8A8' }}>Expire le {expiresAt.toLocaleDateString('fr-FR')}</p>}
               <button
                 onClick={() => onDeactivatePlan(user.id)}
                 className="w-full mt-2 py-2 rounded-lg text-[11px] font-bold"

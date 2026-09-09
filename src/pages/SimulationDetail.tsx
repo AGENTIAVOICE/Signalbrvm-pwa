@@ -124,7 +124,7 @@ export default function SimulationDetail() {
             </span>
           </div>
           <p className="text-textMuted text-xs mb-3">
-            {position.quantity} action{position.quantity > 1 ? 's' : ''} · prix d'entrée {formatPrice(position.avg_buy_price)}
+            {position.quantity} action{position.quantity > 1 ? 's' : ''} · CMP {formatPrice(position.avg_buy_price)}
           </p>
 
           {description && <p className="text-textSub text-xs leading-relaxed mb-3">{description}</p>}

@@ -64,6 +64,7 @@ const GRANT_FORMATION_ACCESS_URL = `${import.meta.env.VITE_SUPABASE_URL as strin
 export interface ExtraUserFields {
   formation_access: boolean
   plan_duration_months: number | null
+  plan_started_at: string | null
   plan_expires_at: string | null
 }
 
@@ -74,7 +75,7 @@ export async function listFormationAccess(): Promise<Record<string, ExtraUserFie
     const res = await fetch(LIST_FORMATION_ACCESS_URL, { headers: { Authorization: `Bearer ${token}` } })
     const json: { data?: ({ id: string } & ExtraUserFields)[] } = await res.json().catch(() => ({}))
     if (!res.ok || !json.data) return {}
-    return Object.fromEntries(json.data.map((r) => [r.id, { formation_access: r.formation_access, plan_duration_months: r.plan_duration_months, plan_expires_at: r.plan_expires_at }]))
+    return Object.fromEntries(json.data.map((r) => [r.id, { formation_access: r.formation_access, plan_duration_months: r.plan_duration_months, plan_started_at: r.plan_started_at, plan_expires_at: r.plan_expires_at }]))
   } catch {
     return {}
   }

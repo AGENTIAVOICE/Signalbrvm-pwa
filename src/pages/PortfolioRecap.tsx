@@ -78,7 +78,7 @@ export default function PortfolioRecap() {
                     <div className="min-w-0 pr-2">
                       <p className="text-white font-bold text-sm truncate">{r.stock_name}</p>
                       <p className="text-textMuted text-[11px]">
-                        {r.quantity} action{r.quantity > 1 ? 's' : ''} · PRU {formatPrice(r.avg_buy_price)}
+                        {r.quantity} action{r.quantity > 1 ? 's' : ''} · CMP {formatPrice(r.avg_buy_price)}
                       </p>
                     </div>
                     <button

@@ -12,12 +12,12 @@ import { useAuth } from '../context/AuthContext'
 import { ProTeaser } from '../components/ProTeaser'
 import { formatPrice } from '../lib/theme'
 
-const ALLOCATION_BY_KEY: Record<string, { actions: number; obligations: number; liquidites: number }> = {
-  securitaire: { actions: 10, obligations: 60, liquidites: 30 },
-  prudent: { actions: 25, obligations: 55, liquidites: 20 },
-  equilibre: { actions: 50, obligations: 35, liquidites: 15 },
-  dynamique: { actions: 70, obligations: 20, liquidites: 10 },
-  agressif: { actions: 85, obligations: 10, liquidites: 5 },
+const ALLOCATION_BY_KEY: Record<string, { actions: number; liquidites: number }> = {
+  securitaire: { actions: 10, liquidites: 90 },
+  prudent: { actions: 25, liquidites: 75 },
+  equilibre: { actions: 50, liquidites: 50 },
+  dynamique: { actions: 70, liquidites: 30 },
+  agressif: { actions: 85, liquidites: 15 },
 }
 
 function AllocationRing({ allocations }: { allocations: { color: string; percent: number }[] }) {
@@ -26,7 +26,7 @@ function AllocationRing({ allocations }: { allocations: { color: string; percent
     <div className="relative" style={{ width: 80, height: 80 }}>
       <div
         className="rounded-full"
-        style={{ width: 80, height: 80, border: '16px solid', borderColor: `${a[0].color} ${a[0].color} ${a[2].color} ${a[1].color}` }}
+        style={{ width: 80, height: 80, border: '16px solid', borderColor: `${a[0].color} ${a[0].color} ${a[1].color} ${a[1].color}` }}
       />
       <div className="absolute inset-0 flex items-center justify-center">
         <span className="text-white font-extrabold text-sm">{a[0].percent}%</span>
@@ -54,7 +54,6 @@ export default function Portefeuille() {
   const allocations = target
     ? [
         { label: 'Actions', percent: target.actions, color: '#F5C842', amount: capital != null ? Math.round((capital * target.actions) / 100) : null },
-        { label: 'Obligations', percent: target.obligations, color: '#3B82F6', amount: capital != null ? Math.round((capital * target.obligations) / 100) : null },
         { label: 'Liquidités', percent: target.liquidites, color: '#22C55E', amount: capital != null ? Math.round((capital * target.liquidites) / 100) : null },
       ]
     : null
@@ -83,7 +82,7 @@ export default function Portefeuille() {
       tone = 'warn'
     } else {
       headline = `Équilibré (${buys} achat${buys > 1 ? 's' : ''} / ${sells} vente${sells > 1 ? 's' : ''})`
-      advice = `Bon arbitrage achats / ventes, cohérent avec l'allocation cible ${target.actions}/${target.obligations}/${target.liquidites} de votre profil.`
+      advice = `Bon arbitrage achats / ventes, cohérent avec l'allocation cible ${target.actions}% actions / ${target.liquidites}% liquidités de votre profil.`
       tone = 'good'
     }
   }
@@ -263,7 +262,7 @@ export default function Portefeuille() {
         ) : !isPro ? (
           <ProTeaser
             title="Allocation cible intelligente"
-            description="Passez à Pro pour voir la répartition actions/obligations/liquidités recommandée pour votre profil, avec les montants en FCFA."
+            description="Passez à Pro pour voir la répartition actions/liquidités recommandée pour votre profil, avec les montants en FCFA."
           >
             <div className="rounded-2xl p-4" style={{ backgroundColor: '#111118', border: '1px solid #2A2A3A', height: 130 }} />
           </ProTeaser>
@@ -400,7 +399,7 @@ function SimPositionCard({ position, onOpen }: { position: SimPosition; onOpen: 
       </div>
       <div className="flex items-center justify-between text-[11px]">
         <span className="text-textMuted">
-          {position.quantity} action{position.quantity > 1 ? 's' : ''} · PRU {formatPrice(position.avg_buy_price)}
+          {position.quantity} action{position.quantity > 1 ? 's' : ''} · CMP {formatPrice(position.avg_buy_price)}
         </span>
         <div className="flex items-center gap-1.5">
           <span className="font-bold" style={{ color: up ? '#22C55E' : '#EF4444' }}>

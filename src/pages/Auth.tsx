@@ -88,7 +88,7 @@ export default function Auth() {
           setMode('login')
           return
         }
-        navigate('/profil-investisseur')
+        navigate('/alertes')
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: email.trim(),

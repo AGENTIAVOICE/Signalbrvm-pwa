@@ -307,7 +307,7 @@ export default function MarcheDetail() {
             {ownedPosition && (
               <p className="text-textSub text-xs mb-3">
                 Vous détenez déjà <span className="text-white font-bold">{ownedPosition.quantity}</span> action
-                {ownedPosition.quantity > 1 ? 's' : ''} · PRU {formatPrice(ownedPosition.avg_buy_price)}
+                {ownedPosition.quantity > 1 ? 's' : ''} · CMP {formatPrice(ownedPosition.avg_buy_price)}
               </p>
             )}
             <div className="flex gap-2">
