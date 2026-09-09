@@ -18,9 +18,9 @@ interface Plan {
 // produits correspondants créés sur Chariow.
 const PLANS: Plan[] = [
   { key: 'decouverte', name: 'Découverte', months: 1, price: 50000, url: 'https://xfhlbaph.mychariow.shop/prd_l924y2px' },
-  { key: 'croissance', name: 'Croissance', months: 3, price: 130000, barePrice: 150000, perMonth: '≈ 43 333 FCFA / mois', url: 'https://xfhlbaph.mychariow.shop/PRODUIT-CROISSANCE-A-CREER' },
-  { key: 'performance', name: 'Performance', months: 6, price: 250000, barePrice: 300000, perMonth: '≈ 41 667 FCFA / mois', url: 'https://xfhlbaph.mychariow.shop/PRODUIT-PERFORMANCE-A-CREER', highlighted: true },
-  { key: 'elite', name: 'Élite', months: 12, price: 400000, barePrice: 600000, perMonth: '≈ 33 333 FCFA / mois — le meilleur tarif', url: 'https://xfhlbaph.mychariow.shop/PRODUIT-ELITE-A-CREER' },
+  { key: 'croissance', name: 'Croissance', months: 3, price: 130000, barePrice: 150000, perMonth: '≈ 43 333 FCFA / mois', url: 'https://xfhlbaph.mychariow.shop/prd_douskr42' },
+  { key: 'performance', name: 'Performance', months: 6, price: 250000, barePrice: 300000, perMonth: '≈ 41 667 FCFA / mois', url: 'https://xfhlbaph.mychariow.shop/prd_4imdjoob', highlighted: true },
+  { key: 'elite', name: 'Élite', months: 12, price: 400000, barePrice: 600000, perMonth: '≈ 33 333 FCFA / mois — le meilleur tarif', url: 'https://xfhlbaph.mychariow.shop/prd_3lh8shn6' },
 ]
 
 // Vocabulaire volontairement prudent : SignalBrvm est présenté comme un
