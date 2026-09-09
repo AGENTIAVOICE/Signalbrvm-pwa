@@ -139,8 +139,14 @@ export default function ProfilParametres() {
       {modal === 'help' && (
         <InfoModal title="Centre d'aide" onClose={() => setModal(null)}>
           <div className="flex flex-col gap-3">
-            <FaqItem q="Comment fonctionne le plan Pro ?" a="Le plan Pro (100 000 FCFA/an) débloque les alertes en temps réel, les analyses complètes, le Market Map BRVM, l'assistant IA et toutes les formations." />
-            <FaqItem q="Comment activer mon plan Pro après paiement ?" a="Après ton paiement sur Chariow, un administrateur active manuellement ton accès sous 24h." />
+            <FaqItem
+              q="Comment fonctionne le plan Pro ?"
+              a="Le plan Pro se décline en 4 formules selon la durée choisie (Découverte 1 mois, Croissance 3 mois, Performance 6 mois, Élite 12 mois) — mêmes fonctionnalités dans les 4 : signal complet, graphiques et RSI réels, simulateur illimité, allocation intelligente. Les formations vidéo sont un produit séparé, à part."
+            />
+            <FaqItem
+              q="Comment activer mon plan Pro après paiement ?"
+              a="L'activation se fait automatiquement dès la confirmation de ton paiement sur Chariow. Si jamais ce n'était pas le cas, un administrateur peut aussi l'activer manuellement."
+            />
             <FaqItem q="J'ai un problème avec mon compte" a="Écris-nous directement, nous répondons rapidement." />
             <a
               href="mailto:support@signalbrvm.com"
