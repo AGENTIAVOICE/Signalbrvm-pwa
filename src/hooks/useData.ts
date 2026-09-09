@@ -98,11 +98,11 @@ export function computeRSI(closes: number[], period = 14): number | null {
 let channelCounter = 0
 
 export function useAlerts() {
-  const [alerts, setAlerts] = useState<DbAlert[]>([])
-  const [loading, setLoading] = useState(true)
+  const [alerts, setAlerts] = useState<DbAlert[]>(() => getCached('alerts_list') ?? [])
+  const [loading, setLoading] = useState(() => getCached('alerts_list') === undefined)
   const [error, setError] = useState<string | null>(null)
   const channelId = useRef(`alerts_rt_${++channelCounter}`)
-  const loadedOnce = useRef(false)
+  const loadedOnce = useRef(getCached('alerts_list') !== undefined)
 
   // silent = true : ne remet jamais le skeleton de chargement — les données
   // affichées restent visibles pendant qu'on récupère les données fraîches,
@@ -114,6 +114,7 @@ export function useAlerts() {
       const { data, error: err } = await supabase.from('alerts').select('*').eq('is_active', true).order('created_at', { ascending: false })
       if (err) throw err
       setAlerts((data ?? []) as DbAlert[])
+      setCached('alerts_list', data ?? [])
       setError(null)
     } catch (err) {
       if (!loadedOnce.current) setError(err instanceof Error ? err.message : 'Erreur réseau')
