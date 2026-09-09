@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase'
 
 // Lien de paiement Chariow pour l'accès complet aux formations — à
 // remplacer par le vrai lien une fois le produit créé sur Chariow.
-const CHARIOW_LINK = 'https://chariow.com/signalbrvm-formations'
+const CHARIOW_LINK = 'https://xfhlbaph.mychariow.shop/prd_b514zwtf'
 const FORMATION_BUNDLE_PRICE = 50000
 
 export default function Formations() {
